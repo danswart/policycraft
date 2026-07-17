@@ -57,6 +57,9 @@ example_data <- data.frame(
 
 expectation_chart_data(example_data, year, measure)
 longitudinal_summary(example_data, year, measure)
+
+# Create the package's standardized expectation chart in the plot pane
+plot_expectation_chart(example_data, year, measure)
 ```
 
 ## Observe → Reason → Insight
@@ -75,6 +78,7 @@ Software does not make policy recommendations. Analysts do.
 - `vignette("longitudinal-analysis", package = "policycraft")`
 - `?policycraft`
 - `?expectation_chart_data`
+- `?plot_expectation_chart`
 - `?launch_longitudinal`
 
 ## Development status

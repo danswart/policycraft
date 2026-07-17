@@ -454,17 +454,6 @@ CHART_EXPORT_WIDTH_IN <- 16
 CHART_EXPORT_HEIGHT_IN <- 8
 CHART_EXPORT_DPI <- 300
 
-CHART_BASE_TEXT_SIZE <- 26
-CHART_TITLE_SIZE <- 21
-CHART_SUBTITLE_SIZE <- 19
-CHART_CAPTION_SIZE <- 22
-CHART_AXIS_TITLE_SIZE <- 23
-
-CHART_TEXT_COLOR <- "royalblue"
-CHART_TITLE_COLOR <- "darkgreen"
-CHART_CAPTION_COLOR <- "darkblue"
-CHART_AXIS_TEXT_COLOR <- "black"
-
 axis_label_or_default <- function(label, default) {
   if (is.null(label) || !nzchar(trimws(label))) default else trimws(label)
 }
@@ -492,41 +481,7 @@ empty_chart_message <- function(label) {
 # afterward with `+ theme(...)` for chart-specific orientation (e.g. bar_plot's
 # horizontal bars, cohort_plot's blanked minor gridlines) — theme() composition
 # only overrides the elements you specify, so this never changes prior output.
-dashboard_chart_theme <- function() {
-  theme_minimal(base_size = CHART_BASE_TEXT_SIZE) +
-    theme(
-      legend.position = "none",
-      axis.title.x = element_text(size = CHART_AXIS_TITLE_SIZE, margin = margin(t = 20)),
-      axis.title.y = element_text(size = CHART_AXIS_TITLE_SIZE),
-      text = element_text(color = CHART_TEXT_COLOR),
-      plot.title.position = "panel",
-      plot.title = element_markdown(
-        color = CHART_TITLE_COLOR,
-        size = CHART_TITLE_SIZE,
-        face = "bold",
-        lineheight = 1.1,
-        margin = margin(2, 0, 0, 0, "lines")
-      ),
-      plot.subtitle = element_markdown(
-        color = CHART_TITLE_COLOR,
-        size = CHART_SUBTITLE_SIZE,
-        face = "bold",
-        lineheight = 1.0,
-        margin = margin(0, 0, 0, 0, "lines")
-      ),
-      plot.caption = element_text(
-        size = CHART_CAPTION_SIZE,
-        hjust = 0,
-        vjust = 2,
-        face = "italic",
-        color = CHART_CAPTION_COLOR
-      ),
-      axis.text = element_text(color = CHART_AXIS_TEXT_COLOR),
-      panel.background = element_rect(fill = "white", color = NA),
-      plot.background = element_rect(fill = "white", color = NA),
-      plot.margin = margin(t = 0, r = 0, b = 0, l = 0)
-    )
-}
+dashboard_chart_theme <- policycraft::policycraft_chart_theme
 
 # Builds one chart tabPanel: title/subtitle/caption inputs, PNG/SVG/PDF download
 # buttons, and the plot itself. All six chart tabs share this exact layout, so

@@ -28,3 +28,33 @@ test_that("longitudinal summary remains neutral and reproducible", {
   expect_equal(result$observations, 10)
   expect_type(result$investigate, "logical")
 })
+
+test_that("expectation chart plotting returns a standardized, inspectable ggplot", {
+  x <- data.frame(year = 2015:2024, measure = c(10, 11, 9, 12, 10, 11, 10, 19, 20, 21))
+  result <- plot_expectation_chart(x, year, measure)
+
+  expect_s3_class(result, "ggplot")
+  expect_true(all(c("run_signal", "signal") %in% names(result$data)))
+  expect_equal(result$labels$title, "Expectation Chart")
+  expect_true(any(result$data$signal))
+  expect_s3_class(result$theme$plot.title, "element_markdown")
+  expect_equal(result$theme$plot.title$colour, "darkgreen")
+  expect_equal(result$theme$plot.title$size, 21)
+})
+
+test_that("expectation chart plotting accepts strings and calculation options", {
+  x <- data.frame(year = 2020:2023, measure = c(1, 2, 1, 2))
+  result <- plot_expectation_chart(
+    x, "year", "measure", run_length = NULL, lower_bound = 0,
+    title = "A local title"
+  )
+
+  expect_equal(result$labels$title, "A local title")
+  expect_false(any(result$data$run_signal))
+  expect_gte(result$data$lower_limit[1], 0)
+})
+
+test_that("expectation chart plotting validates run length", {
+  x <- data.frame(year = 2020:2022, measure = c(1, 2, 3))
+  expect_error(plot_expectation_chart(x, year, measure, run_length = 1), "at least 2")
+})

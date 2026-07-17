@@ -1,5 +1,10 @@
 # policycraft 0.1.0
 
+- Adds `plot_expectation_chart()` for standardized expectation charts from the
+  R console, including limit and run-signal highlighting.
+- Adds `policycraft_chart_theme()` as the single shared theme for console and
+  application charts, keeping their typography and colors synchronized.
+
 ## New package
 
 - Establishes the Observe → Reason → Insight analytical framework.
