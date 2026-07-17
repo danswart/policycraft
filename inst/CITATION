@@ -1,0 +1,14 @@
+citHeader("To cite policycraft in publications, policy briefs, or analytical reports:")
+
+citEntry(
+  entry = "Manual",
+  title = "policycraft: Longitudinal Evidence Tools for Policy Analysis",
+  author = personList(as.person("Dan Swart")),
+  year = "2026",
+  note = "R package version 0.1.0",
+  url = "https://github.com/danswart/policycraft",
+  textVersion = paste(
+    "Swart, D. (2026). policycraft: Longitudinal Evidence Tools for Policy Analysis.",
+    "R package version 0.1.0. https://github.com/danswart/policycraft"
+  )
+)

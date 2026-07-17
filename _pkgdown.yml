@@ -1,0 +1,29 @@
+url: https://danswart.github.io/policycraft/
+template:
+  bootstrap: 5
+  bootswatch: flatly
+home:
+  title: policycraft — Observe, Reason, Insight
+  description: Longitudinal evidence tools for policy analysis.
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    github:
+      icon: fab fa-github
+      href: https://github.com/danswart/policycraft
+      aria-label: GitHub repository
+reference:
+  - title: Package overview
+    contents: [policycraft-package]
+  - title: Interactive tools
+    contents: [launch_longitudinal]
+  - title: Prepare observations
+    contents: [policy_dates, policy_numbers, as_policy_data]
+  - title: Reason about longitudinal patterns
+    contents: [expectation_chart_data, detect_runs, longitudinal_summary]
+articles:
+  - title: Methods
+    navbar: Methods
+    contents: [longitudinal-analysis]

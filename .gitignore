@@ -1,0 +1,11 @@
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+.DS_Store
+docs/
+check/
+revdep/
+cran-comments.md
+*.Rcheck/
+*.tar.gz

@@ -1,0 +1,15 @@
+^renv$
+^renv\.lock$
+^\.github$
+^\.gitignore$
+^\.Rproj\.user$
+^.*\.Rproj$
+^docs$
+^README\.Rmd$
+^cran-comments\.md$
+^tools$
+^\.lintr$
+^_pkgdown\.yml$
+^CONTRIBUTING\.md$
+^CODE_OF_CONDUCT\.md$
+^check$
