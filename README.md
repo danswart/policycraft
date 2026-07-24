@@ -7,25 +7,53 @@
 
 **Observe. Reason. Insight.**
 
-`policycraft` is an R toolkit for policy analysts who examine longitudinal
-system data and translate disciplined observation into decision-useful insight.
-It is designed for analysts advising civic boards, public bodies, and other
-decision-makers—and for analysts who share its emphasis on temporal order,
-system behavior, non-random patterns, and careful interpretation.
+`policycraft` is an R toolkit for policy analysts to progressively
+examine longitudinal system data and translate the observations
+into insight that may be useful to decision-makers who are responsible
+for the system under review. 
+
+It is designed for analysts advising civic boards, public bodies, and
+other decision-makers—and for analysts who share its emphasis on
+temporal order, system behavior, non-random patterns, and careful
+interpretation.
 
 The charts are tools. Insight is the product.
 
+
 ## Analytical stance
 
-Most measured systems are affected by many small forces. Their data can move
-up and down without a single force predominating, yet remain predictable within
-empirically estimated limits. An expectation chart helps an analyst ask whether
-the observed pattern remains consistent with that routine system or whether the
-data contain evidence that warrants investigation.
+Most systems are affected by many forces creating up-and-down variation
+in the measures observed. It is the job of the Policy Analyst to
+estimate what those 'ups' and 'downs' probably mean, within the context
+of earlier outputs.  This simply cannot be done if the data are not
+assembled in date/time order for analysis.
 
-A signal does not identify a cause. It does not prove that a policy worked or
-failed. It is a reason to investigate the system, combine the evidence with
-institutional and policy knowledge, and communicate uncertainty honestly.
+Once data are assembled in the order of their occurance the Longitudinal
+tool allows the Policy Analyst to filter the data into the desired
+groupings. Then, to progressively examine the selected output with a Run
+Chart, a Line Chart, a Bar Chart and, finally, with an Expectation Chart
+(trended or untrended).  I call it an Expectation Chart because it will
+establish what the reasonable expectations of the process output should
+be. 
+
+Placing the data on an Expectation Chart (aka
+Control Chart, or Process Behavior Chart) allows the analyst to
+estimate:
+
+1. Have system outputs in the past been stable (predictable within the
+empirically estimated limits provided by the chart). When the output
+moves up and down without a single large 'cause' predominating, it will appear to move randomly between the upper and lower expectaton limits. and remain predictable within limits.
+
+An expectation chart  helps an analyst determine whether the observed
+pattern remains consistent with the routine system established before
+the policy or whether the data contain evidence that warrants
+investigation.
+
+A signal does not identify a cause specifically. but can often point to
+one based on when the unusual pattern becomes apparent. It does not
+prove that a policy worked or failed. It is a reason to investigate the
+system, combine the evidence with institutional and policy knowledge,
+and communicate uncertainty honestly.
 
 ## Installation
 

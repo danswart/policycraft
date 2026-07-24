@@ -1,0 +1,39 @@
+Package: policycraft
+Title: Longitudinal Evidence Tools for Policy Analysis
+Version: 0.1.0
+Authors@R: person("Dan", "Swart", role = c("aut", "cre"), email = "danswartcpa@gmail.com")
+Description: Tools for policy analysts who examine longitudinal system data in
+    temporal order, distinguish routine variation from non-random patterns,
+    and translate disciplined observation and reasoning into decision-useful
+    insight. Includes an interactive Shiny application with run, line, bar,
+    cohort, autocorrelation, and trended and untrended expectation charts.
+License: MIT + file LICENSE
+URL: https://danswart.github.io/policycraft/, https://github.com/danswart/policycraft
+BugReports: https://github.com/danswart/policycraft/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends: R (>= 4.2.0)
+Imports:
+    bslib,
+    dplyr,
+    DT,
+    ggplot2,
+    ggtext,
+    lubridate,
+    purrr,
+    readr,
+    readxl,
+    rlang,
+    scales,
+    shiny,
+    tibble,
+    tidyr
+Suggests:
+    knitr,
+    lintr,
+    rmarkdown,
+    shinytest2,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

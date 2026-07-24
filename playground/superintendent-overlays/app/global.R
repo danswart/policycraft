@@ -483,9 +483,10 @@ empty_chart_message <- function(label) {
 # only overrides the elements you specify, so this never changes prior output.
 dashboard_chart_theme <- policycraft::policycraft_chart_theme
 
-# ---- SCUC ISD superintendent term annotations -----------------------------
-# Adjacent annual terms meet at January 1. Exact 2020 and 2024 appointment
-# dates are retained for monthly and daily series where those dates matter.
+# ---- Experimental SCUC ISD superintendent-era chart overlays -------------
+# This playground-only data uses transition boundaries inferred from the terms
+# supplied for the experiment. Adjacent annual terms meet at January 1; the
+# exact 2020 and 2024 appointment dates are retained where they were supplied.
 SCUC_SUPERINTENDENT_TERMS <- data.frame(
   superintendent = c(
     "Dr. Byron P. Steele II", "Dr. Edward \"Ed\" West",
@@ -506,8 +507,10 @@ superintendent_date_layers <- function(dates) {
   visible_max <- max(dates)
   terms <- SCUC_SUPERINTENDENT_TERMS
 
-  # Bare years are standardized to January 1 by the app. Treat those as full
-  # calendar years so a 2024 observation displays the 2024 superintendent.
+  # The app standardizes bare years to January 1. For those annual series,
+  # show the whole final calendar year and use year boundaries so a 2024 point
+  # correctly displays the 2024 superintendent. Monthly/daily series retain
+  # the supplied exact appointment dates.
   annual_series <- all(format(dates, "%m-%d") == "01-01")
   term_start <- terms$start
   effective_end <- terms$end
@@ -564,8 +567,8 @@ superintendent_date_layers <- function(dates) {
   )
 }
 
-# Cohort charts use grade on the x-axis. Map each plotted school year back to
-# its grade position before drawing the same superintendent term arrows.
+# Cohort charts use grade on the x-axis, so map each plotted school year back
+# to its grade position before drawing the same eras.
 superintendent_cohort_layers <- function(cohort_data) {
   if (!all(c("grade", "year") %in% names(cohort_data))) return(list())
   points <- cohort_data[!is.na(cohort_data$grade) & !is.na(cohort_data$year), c("grade", "year")]
