@@ -1,5 +1,11 @@
 # policycraft 0.1.0
 
+- Makes expectation-chart recalculation use only observations before the
+  selected intervention date for the original center line and limits.
+- Requires a single `series_id` (when present) and one observation per date,
+  preventing unrelated longitudinal series from being combined silently.
+- Preserves explicit missing periods as chart gaps and prevents moving ranges
+  from bridging across them.
 - Adds superintendent term arrows and labels to every longitudinal chart in
   the Shiny application, including date-based and cohort views.
 - Adds `plot_expectation_chart()` for standardized expectation charts from the

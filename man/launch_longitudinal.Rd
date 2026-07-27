@@ -11,6 +11,7 @@ launch_longitudinal(
   launch_browser = getOption("shiny.launch.browser", interactive()),
   host = getOption("shiny.host", "127.0.0.1"),
   port = getOption("shiny.port", NULL),
+  max_upload_mb = 50,
   ...
 )
 
@@ -18,6 +19,7 @@ load_longitudinal(
   launch_browser = getOption("shiny.launch.browser", interactive()),
   host = getOption("shiny.host", "127.0.0.1"),
   port = getOption("shiny.port", NULL),
+  max_upload_mb = 50,
   ...
 )
 
@@ -34,6 +36,10 @@ custom browser function.}
 Shiny's local-only default.}
 
 \item{port}{Optional TCP port. \code{NULL} asks Shiny to choose an available port.}
+
+\item{max_upload_mb}{Maximum permitted upload size in megabytes. The default
+is 50 MB. The previous \code{shiny.maxRequestSize} option is restored when the
+application closes.}
 
 \item{...}{Additional arguments passed to \code{\link[shiny:runApp]{shiny::runApp()}}.}
 }

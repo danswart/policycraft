@@ -73,6 +73,21 @@ The application accepts CSV, Excel, and RDS files and provides column mapping,
 dynamic filtering, run and line charts, trended and untrended expectation
 charts, cohort analysis, autocorrelation diagnostics, and chart exports.
 
+### Expectation-chart input requirements
+
+An expectation chart must contain one temporally ordered process series with
+no more than one observation per date. Analysis-ready files should include a
+stable `series_id`; filter it to exactly one value before opening the
+Expectation Chart tab. The app rejects multi-series or duplicate-date inputs
+instead of calculating moving ranges across unrelated grades, subjects,
+organizations, standards, or student groups.
+
+When **Recalculate Limits** is enabled, the observations before the selected
+date establish the original center line and expectation limits. Those frozen
+baseline limits are then used to evaluate the later observations. Explicit
+missing periods remain gaps and interrupt moving-range calculations; they are
+not removed, converted to zero, interpolated, or silently bridged.
+
 ## Use the calculation functions directly
 
 ```r

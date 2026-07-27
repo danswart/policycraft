@@ -298,17 +298,19 @@ safe_autocorr <- function(x, lag = 1, na.rm = TRUE) {
 # NEW: Calculate moving ranges for auto-correlation adjustment
 calculate_moving_ranges <- function(values) {
   values <- safe_numeric(values)
-  values <- values[!is.na(values)]
 
-  if (length(values) < 2) {
+  if (sum(!is.na(values)) < 2) {
     return(NA)
   }
 
-  # Calculate moving ranges (absolute difference between consecutive points)
+  # Missing observations interrupt the sequence. They must not be removed,
+  # because doing so would create an artificial moving range across a known
+  # gap such as the cancelled 2020 STAAR administration.
   moving_ranges <- abs(diff(values))
+  moving_ranges <- moving_ranges[!is.na(moving_ranges)]
+  if (length(moving_ranges) == 0L) return(NA)
 
-  # Return average moving range
-  avg_mr <- mean(moving_ranges, na.rm = TRUE)
+  avg_mr <- mean(moving_ranges)
 
   return(avg_mr)
 }

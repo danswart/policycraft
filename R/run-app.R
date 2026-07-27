@@ -10,6 +10,9 @@
 #' @param host Host address on which to serve the application. The default is
 #'   Shiny's local-only default.
 #' @param port Optional TCP port. `NULL` asks Shiny to choose an available port.
+#' @param max_upload_mb Maximum permitted upload size in megabytes. The default
+#'   is 50 MB. The previous `shiny.maxRequestSize` option is restored when the
+#'   application closes.
 #' @param ... Additional arguments passed to [shiny::runApp()].
 #'
 #' @return Invisibly returns the value produced by [shiny::runApp()]. The
@@ -24,8 +27,16 @@ launch_longitudinal <- function(
   launch_browser = getOption("shiny.launch.browser", interactive()),
   host = getOption("shiny.host", "127.0.0.1"),
   port = getOption("shiny.port", NULL),
+  max_upload_mb = 50,
   ...
 ) {
+  if (!is.numeric(max_upload_mb) || length(max_upload_mb) != 1L ||
+      is.na(max_upload_mb) || !is.finite(max_upload_mb) || max_upload_mb <= 0) {
+    stop("`max_upload_mb` must be one positive, finite number.", call. = FALSE)
+  }
+  old_options <- options(shiny.maxRequestSize = max_upload_mb * 1024^2)
+  on.exit(options(old_options), add = TRUE)
+
   app_dir <- system.file("app", package = "policycraft")
   if (!nzchar(app_dir)) {
     stop("The installed policycraft application could not be located.", call. = FALSE)

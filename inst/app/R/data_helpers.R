@@ -209,6 +209,46 @@ prepare_grouped_chart_lines <- function(data, group_var) {
   )
 }
 
+# Expectation limits describe one temporally ordered process. A filtered data
+# set containing more than one series, or more than one observation for the
+# same date, would make moving ranges depend on row ordering rather than the
+# behavior of a single process.
+expectation_series_problem <- function(data) {
+  if (is.null(data) || nrow(data) == 0L) return(NULL)
+
+  if ("series_id" %in% names(data)) {
+    ids <- unique(trimws(as.character(data$series_id)))
+    ids <- ids[!is.na(ids) & nzchar(ids)]
+    if (length(ids) != 1L) {
+      return(paste0(
+        "Expectation charts require exactly one series_id. The current filters contain ",
+        length(ids), " series. Filter series_id to one value."
+      ))
+    }
+  }
+
+  valid_dates <- data$date[!is.na(data$date)]
+  if (anyDuplicated(valid_dates)) {
+    return(
+      "Expectation charts require one observation per date. Filter to one organization, grade, subject, performance standard, and student group."
+    )
+  }
+  NULL
+}
+
+# A slider initialized to the complete observed range represents "All". In
+# that state the filter must be skipped so rows with missing provenance values
+# (for example source_page) remain available to analytical charts.
+is_full_filter_range <- function(values, selected) {
+  observed <- values[!is.na(values)]
+  if (length(observed) == 0L || is.null(selected) || length(selected) < 2L) {
+    return(FALSE)
+  }
+  full_range <- range(as.numeric(observed))
+  selected_range <- as.numeric(selected[1:2])
+  isTRUE(all.equal(selected_range, full_range, tolerance = sqrt(.Machine$double.eps)))
+}
+
 grouping_category_label <- function(data, group_var, fallback = "Cohort") {
   if (
     is.null(data) ||

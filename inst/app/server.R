@@ -124,6 +124,8 @@ server <- function(input, output, session) {
     # multi-line use case), otherwise fall back to Year as before.
     if ("series" %in% potential_groups) {
       potential_groups <- c("series", base::setdiff(potential_groups, "series"))
+    } else if ("series_id" %in% potential_groups) {
+      potential_groups <- c("series_id", base::setdiff(potential_groups, "series_id"))
     } else if ("Year" %in% potential_groups) {
       potential_groups <- c("Year", setdiff(potential_groups, "Year"))
     }
@@ -638,7 +640,7 @@ server <- function(input, output, session) {
           data_before <- data[data$date < recalc_date, ]
           data_after <- data[data$date >= recalc_date, ]
 
-          emp_cl_orig <- safe_mean(data$value)
+          emp_cl_orig <- safe_mean(data_before$value)
           emp_cl_recalc <- if (nrow(data_after) >= 3) {
             safe_mean(data_after$value)
           } else {
@@ -775,7 +777,8 @@ server <- function(input, output, session) {
 
           if (recalc_enabled) {
             recalc_date <- input$recalc_date
-            emp_cl_orig <- safe_mean(data$value)
+            data_before <- data[data$date < recalc_date, ]
+            emp_cl_orig <- safe_mean(data_before$value)
             data_after <- data[data$date >= recalc_date, ]
             emp_cl_recalc <- if (nrow(data_after) >= 3) {
               safe_mean(data_after$value)
@@ -870,8 +873,9 @@ server <- function(input, output, session) {
       return(empty_chart_message("No 'value' column found in data"))
     }
 
-    # Remove rows with NA values to prevent TRUE/FALSE errors
-    data <- data[!is.na(data$date) & !is.na(data$value), ]
+    # Retain explicit missing observations so cancelled/missing periods remain
+    # visible and interrupt the moving range instead of being bridged silently.
+    data <- data[!is.na(data$date), ]
 
     if (nrow(data) == 0) {
       return(empty_chart_message("No valid data after removing NA values"))
@@ -883,6 +887,11 @@ server <- function(input, output, session) {
     # Check if we have any valid numeric values
     if (all(is.na(data$value))) {
       return(empty_chart_message("No valid numeric values in 'value' column"))
+    }
+
+    series_problem <- expectation_series_problem(data)
+    if (!is.null(series_problem)) {
+      return(empty_chart_message(series_problem))
     }
 
     run_series <- prepare_grouped_chart_lines(data, input$grouping_var)
@@ -1259,30 +1268,36 @@ server <- function(input, output, session) {
       data_before <- data[data$date < recalc_date, ]
       data_after <- data[data$date >= recalc_date, ]
 
+      if (sum(!is.na(data_before$value)) < 2L) {
+        return(empty_chart_message(
+          "At least two valid pre-intervention observations are required to calculate frozen baseline limits."
+        ))
+      }
+
       # IMPROVED: Calculate original expectation chart statistics with safe functions
-      emp_cl_orig <- safe_mean(data$value)
+      emp_cl_orig <- safe_mean(data_before$value)
 
       # Calculate sigma based on whether auto-correlation adjustment is enabled
       if (use_autocorr && !is.na(r_lag1)) {
         # Calculate moving ranges for the entire dataset
-        avg_mr_orig <- calculate_moving_ranges(data$value)
+        avg_mr_orig <- calculate_moving_ranges(data_before$value)
         if (!is.na(avg_mr_orig) && abs(r_lag1) < 0.999) {
           # Avoid division by zero
           # Apply auto-correlation adjustment formula: σ = R-bar / (d2 * √(1 - r²))
           sigma_orig <- avg_mr_orig / (1.128 * sqrt(1 - r_lag1^2))
         } else {
           # Fallback to standard deviation if moving range fails or r is too close to 1
-          sigma_orig <- safe_sd(data$value)
+          sigma_orig <- safe_sd(data_before$value)
         }
       } else {
         # Standard calculation using moving range method for consistency
-        avg_mr_orig <- calculate_moving_ranges(data$value)
+        avg_mr_orig <- calculate_moving_ranges(data_before$value)
         if (!is.na(avg_mr_orig)) {
           # Standard moving range sigma calculation
           sigma_orig <- avg_mr_orig / 1.128
         } else {
           # Fallback to standard deviation if moving range fails
-          sigma_orig <- safe_sd(data$value)
+          sigma_orig <- safe_sd(data_before$value)
         }
       }
 
@@ -2853,11 +2868,17 @@ server <- function(input, output, session) {
       if (!is.null(filter_value)) {
         # Date filtering
         if (inherits(data[[col]], "Date") || lubridate::is.Date(data[[col]])) {
+          if (is_full_filter_range(data[[col]], filter_value)) {
+            next
+          }
           start_date <- filter_value[1]
           end_date <- filter_value[2]
           filtered <- filtered %>%
             filter(!!sym(col) >= start_date & !!sym(col) <= end_date)
         } else if (is.numeric(data[[col]])) {
+          if (is_full_filter_range(data[[col]], filter_value)) {
+            next
+          }
           # Numeric filtering
           filtered <- filtered %>%
             filter(
