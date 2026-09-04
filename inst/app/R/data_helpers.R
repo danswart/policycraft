@@ -117,7 +117,12 @@ guess_date_value_columns <- function(data) {
   list(date_col = best_date_col, value_col = best_value_col)
 }
 
-add_chart_columns <- function(data, date_col_override = NULL, value_col_override = NULL) {
+add_chart_columns <- function(
+  data,
+  date_col_override = NULL,
+  value_col_override = NULL,
+  order_type = NULL
+) {
   if (is.null(data) || nrow(data) == 0) return(data)
 
   data <- tibble::as_tibble(data)
@@ -143,8 +148,12 @@ add_chart_columns <- function(data, date_col_override = NULL, value_col_override
   } else {
     empty_date(nrow(data))
   }
-  date_is_missing <- all(is.na(best_date))
-  if (date_is_missing) {
+  sequence_axis <- identical(order_type, "sequence") ||
+    (is.null(order_type) && all(is.na(best_date)))
+  if (identical(order_type, "date") && all(is.na(best_date))) {
+    stop("The selected order column contains no recognizable calendar dates.", call. = FALSE)
+  }
+  if (sequence_axis) {
     best_date <- as.Date("1970-01-01") + seq_len(nrow(data)) - 1L
   }
   best_value <- if (!is.na(value_col)) {
@@ -155,10 +164,17 @@ add_chart_columns <- function(data, date_col_override = NULL, value_col_override
 
   data$date <- as.Date(best_date)
   data$value <- as.numeric(best_value)
-  data$Year <- lubridate::year(data$date)
-  if (date_is_missing) data$Year <- NA_integer_
-  data <- dplyr::relocate(data, date, value, dplyr::any_of("Year"), .before = 1)
-  names(data)[1:2] <- c("date", "value")
+  if (sequence_axis) {
+    observation <- safe_numeric(data[[date_col]])
+    if (all(is.na(observation))) observation <- seq_len(nrow(data))
+    data$observation <- observation
+    data <- dplyr::relocate(data, observation, value, date, .before = 1)
+    names(data)[1:2] <- c("observation", "value")
+  } else {
+    data$Year <- lubridate::year(data$date)
+    data <- dplyr::relocate(data, date, value, dplyr::any_of("Year"), .before = 1)
+    names(data)[1:2] <- c("date", "value")
+  }
   data
 }
 
@@ -172,6 +188,23 @@ extract_data_frame_from_rds <- function(x) {
     "The uploaded .rds file must contain a data frame/tibble, or a list containing a data frame/tibble.",
     call. = FALSE
   )
+}
+
+# Convert character, factor, date, or numeric grouping values to a stable
+# discrete factor for manual ggplot colour and fill scales.
+make_discrete_group <- function(data, group_var, new_col = ".plot_group") {
+  if (is.null(group_var) || group_var == "" || !group_var %in% names(data)) {
+    return(data)
+  }
+
+  if (inherits(data[[group_var]], "Date")) {
+    data[[new_col]] <- format(data[[group_var]], "%Y")
+  } else {
+    data[[new_col]] <- as.character(data[[group_var]])
+  }
+
+  data[[new_col]] <- factor(data[[new_col]], levels = unique(data[[new_col]]))
+  data
 }
 
 grouped_line_endpoints <- function(data, group_var, date_var = "date") {
@@ -190,21 +223,46 @@ grouped_line_endpoints <- function(data, group_var, date_var = "date") {
     dplyr::ungroup()
 }
 
+offset_line_end_labels <- function(
+  labels,
+  all_dates,
+  date_var = "date",
+  new_col = ".label_date",
+  fraction = 0.035,
+  min_days = 14
+) {
+  labels[[new_col]] <- labels[[date_var]]
+  valid_dates <- as.Date(all_dates[!is.na(all_dates)])
+
+  if (!nrow(labels) || !length(valid_dates)) {
+    return(labels)
+  }
+
+  span_days <- as.numeric(diff(range(valid_dates)))
+  offset_days <- max(min_days, ceiling(span_days * fraction))
+  labels[[new_col]] <- as.Date(labels[[date_var]]) + offset_days
+  labels
+}
+
 prepare_grouped_chart_lines <- function(data, group_var) {
   use_groups <- !is.null(group_var) &&
     nzchar(group_var) &&
     group_var %in% names(data) &&
-    !is.numeric(data[[group_var]])
+    any(!is.na(data[[group_var]]))
 
   if (!use_groups) {
     data$.plot_group <- factor("Series")
-    return(list(data = data, labels = data[0, , drop = FALSE], grouped = FALSE))
+    labels <- data[0, , drop = FALSE]
+    labels$.label_date <- as.Date(character(0))
+    return(list(data = data, labels = labels, grouped = FALSE))
   }
 
   data <- make_discrete_group(data, group_var)
+  labels <- grouped_line_endpoints(data, ".plot_group")
+  labels <- offset_line_end_labels(labels, data$date)
   list(
     data = data,
-    labels = grouped_line_endpoints(data, ".plot_group"),
+    labels = labels,
     grouped = TRUE
   )
 }

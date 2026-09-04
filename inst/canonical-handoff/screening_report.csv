@@ -1,0 +1,9 @@
+proposal_type,candidate,evidence,validation_status
+candidate_measure,tests_taken_count,9324 reported observations,accepted
+candidate_numerator,period-specific passing count,Satisfactory through 2016; Approaches and Above from 2017,accepted for test case
+candidate_denominator,tests_taken_count,count and published grade-level percentage reconcile,validated
+duplicate_grain,canonical observation key,0 duplicate rows,none detected
+suppression_encoding,asterisk in annual workbook,Annual comparison workbooks use *; 2024 also uses -; Research Portal CSV uses blanks,proposal; raw blank semantics unresolved
+definition_change,passing standard,Satisfactory before 2017; Approaches and Above from 2017,confirmed label change; construct comparability is a policy assumption
+aggregation_relationship,grades 3-8 mathematics rate,ratio of summed applicable counts to summed tests,review required
+geographic_availability,Region 20 and Texas,independent percentages are reported for 2018-2024; counts are absent,rates retained; reconstruction unavailable

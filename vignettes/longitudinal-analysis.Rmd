@@ -1,6 +1,6 @@
 ---
 title: "Longitudinal Analysis: From Observation to Policy Insight"
-author: "Dan Swart"
+author: "Dan Swart, CPA (ret)"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Longitudinal Analysis: From Observation to Policy Insight}
@@ -12,6 +12,35 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 library(policycraft)
 ```
+
+## Canonical and exploratory inputs
+
+Ordinary CSV, Excel, and data-frame RDS uploads keep the exploratory workflow:
+users map columns, filter dimensions, and choose visual groups.
+
+A canonical longitudinal RDS bundle carries `observations`, `measures`,
+`derivations`, `lineage`, `screening_report`, and `validation_results`, plus a
+supported `schema_version`. policycraft validates required columns, unique IDs,
+registry references, units, and lineage before analysis. Version
+`canonical_longitudinal_bundle/0.1.0` is supported.
+
+```{r canonical-contract, eval=FALSE}
+bundle <- load_canonical_bundle("my_bundle.rds")
+list_canonical_series(bundle)
+series <- resolve_canonical_series(bundle, "my_stable_series_id")
+rows <- canonical_expectation_input(series)
+```
+
+The app exposes validated canonical observations for filtering, grouped Line
+charts, inspection, and export. The exact filtered rows are shared across the
+diagnostic tools; Run, expectation, and autocorrelation tools require one
+existing `series_id`. Registry definitions, statuses, source identifiers,
+lineage, validation results, and semantic screening issues remain visible. The
+app does not create combined grades, totals, averages, or ratios. Those
+substantive transformations belong in an explicit curation script or Quarto
+document. Producers should declare grain, use stable IDs, register definitions,
+link derived observations to their sources, and include machine-readable
+screening and validation tables.
 
 ## The analytical purpose
 
@@ -41,7 +70,8 @@ Observations within those limits may look irregular while remaining consistent
 with the routine system.
 
 Some patterns warrant investigation—for example, an observation beyond an
-expectation limit or a sufficiently long run on one side of the center. These
+expectation limit, eight observations on one side of the center, six steadily
+increasing or decreasing observations, or fourteen alternating observations. These
 signals indicate that the pattern is difficult to explain as routine behavior
 alone. They do not identify the responsible force and do not establish that a
 particular policy caused the pattern.
@@ -104,7 +134,13 @@ By default, `detect_runs()` marks the eighth and subsequent observations in a
 run on the same side of the center. A value exactly on the center and a missing
 value interrupt a run. Rules should be declared before interpreting the chart;
 they should not be changed repeatedly until the analyst finds a preferred
-story.
+story. The interactive application additionally evaluates six-point monotonic
+trends and fourteen-point alternating patterns; **Runs Debug** displays each
+rule separately.
+
+The exported `detect_runs()` function currently addresses the same-side rule.
+The additional application rules are chart diagnostics rather than a claim that
+one universal rule set is mandatory for every policy context.
 
 ## Decide whether an expectation chart is suitable
 
@@ -122,6 +158,11 @@ Before relying on either a trended or untrended chart, ask:
 Run, line, bar, and cohort charts help the analyst inspect direction,
 composition, gaps, and grouping structure before selecting an expectation-chart
 form.
+
+Use filtering and grouping to inspect existing observations. If an analysis
+requires combined categories, summed counts, or a ratio of sums, construct and
+validate that new series visibly in a curation script or Quarto report before
+loading it into policycraft.
 
 ## Move from signal to insight
 

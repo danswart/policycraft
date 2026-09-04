@@ -1,6 +1,107 @@
 # Server — relies on helpers/constants from global.R (dashboard_chart_theme,
 # empty_chart_message, guess_date_value_columns, safe_numeric, etc.)
 server <- function(input, output, session) {
+  uploaded_object <- reactive({
+    req(input$file)
+    ext <- tolower(tools::file_ext(input$file$name))
+    if (ext == "csv") {
+      readr::read_csv(input$file$datapath, col_names = input$header, show_col_types = FALSE)
+    } else if (ext %in% c("xlsx", "xls")) {
+      readxl::read_excel(input$file$datapath, col_names = input$header)
+    } else if (ext == "rds") {
+      readRDS(input$file$datapath)
+    } else {
+      validate(need(FALSE, "Please upload a .csv, .xlsx, .xls, or .rds file."))
+    }
+  })
+
+  canonical_bundle <- reactive({
+    object <- uploaded_object()
+    is_candidate <- is.list(object) && !is.data.frame(object) && !is.null(names(object)) &&
+      any(c("schema_version", "observations", "measures", "derivations", "lineage",
+            "screening_report", "validation_results") %in% names(object))
+    if (!is_candidate) return(NULL)
+    tryCatch(
+      validate_canonical_bundle(object),
+      error = function(e) validate(need(FALSE, conditionMessage(e)))
+    )
+  })
+
+  output$is_canonical <- reactive(!is.null(canonical_bundle()))
+  outputOptions(output, "is_canonical", suspendWhenHidden = FALSE)
+
+  output$canonical_summary <- renderUI({
+    bundle <- canonical_bundle()
+    rows <- filtered_data()
+    req(bundle, rows)
+    series_ids <- unique(as.character(rows$series_id[!is.na(rows$series_id)]))
+    definitions <- list_canonical_series(bundle)
+    definition <- definitions[definitions$series_id %in% series_ids, , drop = FALSE]
+    field <- function(name, fallback = "Not supplied") {
+      if (length(series_ids) != 1L || !name %in% names(definition) || !nrow(definition) ||
+          is.na(definition[[name]][1]) || !nzchar(as.character(definition[[name]][1]))) {
+        fallback
+      } else as.character(definition[[name]][1])
+    }
+    tags$div(
+      class = "alert alert-info",
+      tags$h4("Canonical explorer"),
+      tags$p(paste0(nrow(rows), " filtered observation(s) across ", length(series_ids), " series.")),
+      if (length(series_ids) == 1L) tagList(
+        tags$p(tags$strong("Selected series: "), series_ids),
+        tags$p(paste0(
+          "Entity: ", field("entity_name", field("entity_id")),
+          " | Geographic level: ", field("geographic_level"),
+          " | Subject: ", field("subject"),
+          " | Tested grade: ", field("tested_grade"),
+          " | Student group: ", field("student_group"),
+          " | Unit: ", field("unit")
+        )),
+        tags$p(paste0("Valid period: ", field("valid_start"), " through ", field("valid_end"))),
+        tags$p(tags$strong("Measure definition: "), field("meaning")),
+        tags$p(tags$strong("Derivation formula: "), field("definition", "Reported value; no derivation supplied."))
+      ) else tags$p("Filter `series_id` to exactly one series before using Run, expectation, or autocorrelation diagnostics."),
+      tags$p("Filters and charts inspect existing canonical observations only; policycraft does not create new totals, averages, or ratios.")
+    )
+  })
+
+  output$canonical_status_table <- DT::renderDataTable({
+    rows <- filtered_data()
+    columns <- intersect(c("observation_id", "observation_date", "value", "unit", "reporting_status", "source_id", "source_record_id", "source_field", "source_value", "derivation_id"), names(rows))
+    DT::datatable(rows[columns], options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
+  })
+  output$canonical_measure_table <- DT::renderDataTable({
+    bundle <- canonical_bundle()
+    rows <- filtered_data()
+    data <- bundle$measures[bundle$measures$measure_id %in% unique(rows$measure_id), , drop = FALSE]
+    DT::datatable(data, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
+  })
+  output$canonical_derivation_table <- DT::renderDataTable({
+    bundle <- canonical_bundle()
+    rows <- filtered_data()
+    ids <- unique(as.character(rows$derivation_id[!is.na(rows$derivation_id)]))
+    data <- bundle$derivations[bundle$derivations$derivation_id %in% ids, , drop = FALSE]
+    DT::datatable(data, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
+  })
+  output$canonical_lineage_table <- DT::renderDataTable({
+    bundle <- canonical_bundle()
+    rows <- filtered_data()
+    lineage <- bundle$lineage[bundle$lineage$derived_observation_id %in% rows$observation_id, , drop = FALSE]
+    source_rows <- bundle$observations[bundle$observations$observation_id %in% lineage$source_observation_id, , drop = FALSE]
+    if (nrow(lineage) && nrow(source_rows)) {
+      source <- source_rows
+      names(source) <- paste0("source_", names(source))
+      lineage <- dplyr::left_join(lineage, source, by = c("source_observation_id" = "source_observation_id"))
+    }
+    DT::datatable(lineage, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
+  })
+  output$canonical_validation_table <- DT::renderDataTable({
+    DT::datatable(canonical_bundle()$validation_results, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
+  })
+  output$canonical_screening_table <- DT::renderDataTable({
+    DT::datatable(canonical_bundle()$screening_report, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
+  })
+
   # Reads the uploaded file as-is (original column names, no date/value
   # standardization). This is what the Column Mapping tab shows and lets the
   # user pick a Date column and a Value column from.
@@ -9,20 +110,13 @@ server <- function(input, output, session) {
 
     # Use the original uploaded filename for extension detection.
     # input$file$datapath is a temporary file path and may not keep the extension.
-    ext <- tolower(tools::file_ext(input$file$name))
-
-    data <- if (ext == "csv") {
-      readr::read_csv(
-        input$file$datapath,
-        col_names = input$header,
-        show_col_types = FALSE
-      )
-    } else if (ext %in% c("xlsx", "xls")) {
-      readxl::read_excel(input$file$datapath, col_names = input$header)
-    } else if (ext == "rds") {
-      extract_data_frame_from_rds(readRDS(input$file$datapath))
+    object <- uploaded_object()
+    data <- if (!is.null(canonical_bundle())) {
+      canonical_bundle()$observations
+    } else if (is.data.frame(object)) {
+      object
     } else {
-      validate(need(FALSE, "Please upload a .csv, .xlsx, .xls, or .rds file."))
+      extract_data_frame_from_rds(object)
     }
 
     if (!is.null(data)) {
@@ -33,17 +127,66 @@ server <- function(input, output, session) {
     data
   })
 
-  # Whenever a new file is read, pre-select the Column Mapping dropdowns with
-  # the app's best guess. The user can change either dropdown afterward.
+  applied_column_mapping <- reactiveVal(NULL)
+
+  # Whenever a new file is read, pre-select and initialize the mapping with the
+  # app's best guess. Later dropdown changes remain proposals until applied.
   observeEvent(file_data(), {
     data <- file_data()
     req(data)
 
+    if (!is.null(canonical_bundle())) return()
+
     guesses <- guess_date_value_columns(data)
     cols <- names(data)
+    guessed_order_type <- if (all(is.na(standardize_to_date(data[[guesses$date_col]])))) {
+      "sequence"
+    } else {
+      "date"
+    }
 
     updateSelectInput(session, "map_date_col", choices = cols, selected = guesses$date_col)
     updateSelectInput(session, "map_value_col", choices = cols, selected = guesses$value_col)
+    updateRadioButtons(session, "map_order_type", selected = guessed_order_type)
+    applied_column_mapping(list(
+      date_col = guesses$date_col,
+      value_col = guesses$value_col,
+      order_type = guessed_order_type
+    ))
+  })
+
+  observeEvent(input$apply_column_mapping, {
+    data <- file_data()
+    req(data)
+
+    date_col <- input$map_date_col
+    value_col <- input$map_value_col
+    order_type <- input$map_order_type
+    if (
+      is.null(date_col) || is.null(value_col) ||
+        !date_col %in% names(data) || !value_col %in% names(data)
+    ) {
+      showNotification("Choose a valid Date column and Value column first.", type = "error")
+      return()
+    }
+    if (identical(date_col, value_col)) {
+      showNotification("Date and Value must use different columns.", type = "error")
+      return()
+    }
+    if (identical(order_type, "date") && all(is.na(standardize_to_date(data[[date_col]])))) {
+      showNotification(
+        "The selected order column contains no recognizable calendar dates. Choose Observation sequence or select another column.",
+        type = "error"
+      )
+      return()
+    }
+
+    applied_column_mapping(list(
+      date_col = date_col,
+      value_col = value_col,
+      order_type = order_type
+    ))
+    showNotification("Column mapping applied to the app's working data.", type = "message")
   })
 
   output$mapping_preview_table <- DT::renderDataTable({
@@ -67,10 +210,26 @@ server <- function(input, output, session) {
       return("Waiting for column selection...")
     }
     if (identical(date_col, value_col)) {
-      return("Date and Value must be different columns.")
+      return("Observation/Date and Value must be different columns.")
     }
 
-    paste0("'", date_col, "' -> date    |    '", value_col, "' -> value")
+    order_type <- input$map_order_type
+    axis_name <- if (identical(order_type, "sequence")) "observation" else "date"
+
+    applied <- applied_column_mapping()
+    if (
+      is.null(applied) ||
+        !identical(date_col, applied$date_col) ||
+        !identical(value_col, applied$value_col) ||
+        !identical(order_type, applied$order_type)
+    ) {
+      return(paste0(
+        "Proposed: '", date_col, "' -> ", axis_name, " | '", value_col,
+        "' -> value. Click Apply mapping to use it."
+      ))
+    }
+
+    paste0("Applied: '", date_col, "' -> ", axis_name, " | '", value_col, "' -> value")
   })
 
   # Data with the user's (or the auto-guessed) Date/Value column mapping applied.
@@ -80,8 +239,15 @@ server <- function(input, output, session) {
     data <- file_data()
     req(data)
 
-    date_override <- input$map_date_col
-    value_override <- input$map_value_col
+    if (!is.null(canonical_bundle())) {
+      data$date <- data$observation_date
+      data$year <- lubridate::year(data$date)
+      return(tibble::as_tibble(data))
+    }
+
+    mapping <- applied_column_mapping()
+    date_override <- mapping$date_col
+    value_override <- mapping$value_col
     if (is.null(date_override) || !date_override %in% names(data)) {
       date_override <- NULL
     }
@@ -89,7 +255,12 @@ server <- function(input, output, session) {
       value_override <- NULL
     }
 
-    add_chart_columns(data, date_col_override = date_override, value_col_override = value_override)
+    add_chart_columns(
+      data,
+      date_col_override = date_override,
+      value_col_override = value_override,
+      order_type = mapping$order_type
+    )
   })
 
   # Output to control conditional panel visibility
@@ -98,27 +269,43 @@ server <- function(input, output, session) {
   })
   outputOptions(output, 'data_uploaded', suspendWhenHidden = FALSE)
 
+  output$uses_observation_axis <- reactive({
+    data <- raw_data()
+    !is.null(data) && "observation" %in% names(data)
+  })
+  outputOptions(output, 'uses_observation_axis', suspendWhenHidden = FALSE)
+
   # Reactive for available grouping columns
   grouping_choices <- reactive({
     data <- raw_data()
     if (is.null(data)) {
       return(NULL)
     }
-
+    mapping <- applied_column_mapping()
+    mapped_source_columns <- if (is.null(mapping)) {
+      character(0)
+    } else {
+      c(mapping$date_col, mapping$value_col)
+    }
     # Exclude date and value columns
     value_patterns <- c(
       "^value$",
       "^pct$",
       "^percent$",
       "^amount$",
-      "^count$",
-      "^measure$"
+      "^count$"
     )
     value_pattern <- paste(value_patterns, collapse = "|")
     potential_groups <- names(data)[
       !names(data) %in% c("date") &
         !grepl(value_pattern, names(data), ignore.case = TRUE)
     ]
+    potential_groups <- setdiff(potential_groups, mapped_source_columns)
+    potential_groups <- potential_groups[vapply(
+      potential_groups,
+      function(column) any(!is.na(data[[column]])),
+      logical(1)
+    )]
 
     # Put "series" at the top when wide data was auto-pivoted (most common
     # multi-line use case), otherwise fall back to Year as before.
@@ -158,8 +345,7 @@ server <- function(input, output, session) {
         "^pct$",
         "^percent$",
         "^amount$",
-        "^count$",
-        "^measure$"
+        "^count$"
       )
       value_pattern <- paste(value_patterns, collapse = "|")
       grade_like <- names(data)[
@@ -173,7 +359,7 @@ server <- function(input, output, session) {
 
   # ENHANCED: Reactive for auto-correlation analysis with BOTH ACF and Sample Correlation
   autocorr_data <- reactive({
-    data <- filtered_data()
+    data <- analytical_data()
     if (is.null(data) || nrow(data) == 0 || !"value" %in% names(data)) {
       return(data.frame(
         Lag = c("Lag-1", "Lag-2", "Lag-3"),
@@ -184,6 +370,9 @@ server <- function(input, output, session) {
         stringsAsFactors = FALSE
       ))
     }
+
+    series_problem <- expectation_series_problem(data)
+    validate(need(is.null(series_problem), series_problem))
 
     # Remove rows with NA values and sort by date
     data <- data[!is.na(data$date) & !is.na(data$value), ]
@@ -314,6 +503,17 @@ server <- function(input, output, session) {
         max = date_range[2]
       )
     }
+    if (!is.null(data) && "observation" %in% names(data)) {
+      observations <- unique(data$observation[!is.na(data$observation)])
+      observations <- sort(observations)
+      default_index <- max(1L, ceiling(length(observations) * 0.6))
+      updateSelectInput(
+        session,
+        "recalc_observation",
+        choices = observations,
+        selected = observations[default_index]
+      )
+    }
   })
 
   # Update grouping variable choices when data changes
@@ -323,8 +523,8 @@ server <- function(input, output, session) {
       updateSelectInput(
         session,
         "grouping_var",
-        choices = setNames(choices, choices),
-        selected = choices[1]
+        choices = c("No grouping" = "", setNames(choices, choices)),
+        selected = ""
       )
     } else {
       updateSelectInput(
@@ -368,9 +568,23 @@ server <- function(input, output, session) {
   # Display date range information (Run Chart tab)
   output$date_info <- renderUI({
     data <- raw_data()
-    if (is.null(data) || !"date" %in% names(data)) {
+    if (is.null(data)) {
       return(NULL)
     }
+
+    if ("observation" %in% names(data)) {
+      observation_range <- range(data$observation, na.rm = TRUE)
+      return(div(
+        style = "background-color: #f0f8ff; padding: 10px; border-radius: 5px; border: 1px solid #4682b4;",
+        HTML(paste0(
+          "<strong>Observation Range:</strong> ",
+          observation_range[1], " to ", observation_range[2],
+          " <em>(", nrow(data), " rows, ordinal x-axis)</em>"
+        ))
+      ))
+    }
+
+    if (!"date" %in% names(data)) return(NULL)
 
     date_range <- range(data$date, na.rm = TRUE)
     all_jan_first <- all(format(data$date, "%m-%d") == "01-01", na.rm = TRUE)
@@ -398,9 +612,16 @@ server <- function(input, output, session) {
 
   # Display grouping variable information (Line Chart tab)
   output$grouping_info <- renderUI({
-    data <- raw_data()
+    data <- filtered_data()
     if (is.null(data)) {
       return(NULL)
+    }
+
+    if (nrow(data) == 0L) {
+      return(div(
+        style = "background-color: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffeaa7;",
+        HTML("<strong>Note:</strong> No rows remain after applying the current filters.")
+      ))
     }
 
     if (
@@ -416,7 +637,7 @@ server <- function(input, output, session) {
       )
     } else {
       group_var <- input$grouping_var
-      unique_groups <- unique(data[[group_var]])
+      unique_groups <- unique(data[[group_var]][!is.na(data[[group_var]])])
 
       div(
         style = "background-color: #d1ecf1; padding: 10px; border-radius: 5px; border: 1px solid #81c784;",
@@ -481,15 +702,22 @@ server <- function(input, output, session) {
       return(NULL)
     }
 
-    date_range <- range(data$date, na.rm = TRUE)
+    if ("observation" %in% names(data)) {
+      span <- range(data$observation, na.rm = TRUE)
+      range_text <- paste0("observations ", span[1], " to ", span[2])
+    } else {
+      date_range <- range(data$date, na.rm = TRUE)
+      range_text <- paste0(
+        format(date_range[1], "%B %d, %Y"), " to ",
+        format(date_range[2], "%B %d, %Y")
+      )
+    }
 
     div(
       style = "background-color: #e8f5e8; padding: 10px; border-radius: 5px; border: 1px solid #4caf50;",
       HTML(paste0(
         "<strong>Trended Expectation Chart:</strong> Linear trend-adjusted expectation chart showing process capability from ",
-        format(date_range[1], "%B %d, %Y"),
-        " to ",
-        format(date_range[2], "%B %d, %Y"),
+        range_text,
         " <em>(Points colored by sigma signals, centerline shows trend, includes runs analysis)</em>"
       ))
     )
@@ -502,15 +730,22 @@ server <- function(input, output, session) {
       return(NULL)
     }
 
-    date_range <- range(data$date, na.rm = TRUE)
+    if ("observation" %in% names(data)) {
+      span <- range(data$observation, na.rm = TRUE)
+      range_text <- paste0("observations ", span[1], " to ", span[2])
+    } else {
+      date_range <- range(data$date, na.rm = TRUE)
+      range_text <- paste0(
+        format(date_range[1], "%B %d, %Y"), " to ",
+        format(date_range[2], "%B %d, %Y")
+      )
+    }
 
     div(
       style = "background-color: #fff8e1; padding: 10px; border-radius: 5px; border: 1px solid #ffa726;",
       HTML(paste0(
         "<strong>Expectation Chart:</strong> Untrended expectation chart showing process capability from ",
-        format(date_range[1], "%B %d, %Y"),
-        " to ",
-        format(date_range[2], "%B %d, %Y"),
+        range_text,
         " <em>(Points colored by sigma signals, center line shows runs signals)</em>"
       ))
     )
@@ -673,6 +908,14 @@ server <- function(input, output, session) {
 
           before_long_runs <- before_runs[before_runs >= 8]
           after_long_runs <- after_runs[after_runs >= 8]
+          debug_rules <- detect_run_rule_signals(
+            data$value,
+            ifelse(data$date < recalc_date, emp_cl_orig, emp_cl_recalc),
+            same_side_signals = detect_runs_signals_recalc(
+              data$value, emp_cl_orig, emp_cl_recalc, data$date, recalc_date
+            ),
+            segment = data$date >= recalc_date
+          )
 
           paste(
             "=== FIXED RUNS ANALYSIS (RECALCULATION MODE) ===",
@@ -699,6 +942,11 @@ server <- function(input, output, session) {
             ),
             paste("Runs signals detected:", length(after_long_runs) > 0),
             "",
+            "=== COMBINED RUN-RULE RESULT ===",
+            run_rule_summary(debug_rules),
+            paste("Six-point trend endpoints:", paste(which(debug_rules$trend_6), collapse = ", ")),
+            paste("Fourteen-point alternating endpoints:", paste(which(debug_rules$alternating_14), collapse = ", ")),
+            "",
             "=== IMPROVEMENT NOTES ===",
             "• Each segment analyzed separately with appropriate centerline",
             "• No artificial breaks at recalculation boundary",
@@ -719,6 +967,10 @@ server <- function(input, output, session) {
           run_details <- rle(above_cl_clean)
           above_runs <- run_details$lengths[run_details$values == TRUE]
           below_runs <- run_details$lengths[run_details$values == FALSE]
+          debug_rules <- detect_run_rule_signals(
+            data$value,
+            rep(emp_cl, nrow(data))
+          )
 
           paste(
             "=== FIXED RUNS ANALYSIS (STANDARD MODE) ===",
@@ -734,6 +986,11 @@ server <- function(input, output, session) {
             paste("Runs of 8+ points:", paste(long_runs, collapse = ", ")),
             paste("Total long runs detected:", length(long_runs)),
             paste("Runs signal triggered:", length(long_runs) > 0),
+            "",
+            "=== COMBINED RUN-RULE RESULT ===",
+            run_rule_summary(debug_rules),
+            paste("Six-point trend endpoints:", paste(which(debug_rules$trend_6), collapse = ", ")),
+            paste("Fourteen-point alternating endpoints:", paste(which(debug_rules$alternating_14), collapse = ", ")),
             "",
             "=== IMPROVEMENT NOTES ===",
             "• Proper run length encoding (rle) detects ALL consecutive runs",
@@ -794,6 +1051,12 @@ server <- function(input, output, session) {
               data$date,
               recalc_date
             )
+            rule_signals <- detect_run_rule_signals(
+              data$value,
+              ifelse(data$date < recalc_date, emp_cl_orig, emp_cl_recalc),
+              same_side_signals = runs_signals,
+              segment = data$date >= recalc_date
+            )
 
             centerline_used <- ifelse(
               data$date < recalc_date,
@@ -807,7 +1070,10 @@ server <- function(input, output, session) {
               Value = round(safe_numeric(data$value), 3),
               Centerline_Used = round(centerline_used, 3),
               Above_Centerline = safe_numeric(data$value) > centerline_used,
-              Runs_Signal = runs_signals,
+              Same_Side_8 = rule_signals$same_side_8,
+              Trend_6 = rule_signals$trend_6,
+              Alternating_14 = rule_signals$alternating_14,
+              Any_Run_Rule = rule_signals$any_run_rule,
               Segment = ifelse(data$date < recalc_date, "Before", "After")
             )
           } else {
@@ -819,6 +1085,11 @@ server <- function(input, output, session) {
               rep(emp_cl, nrow(data)),
               data$date
             )
+            rule_signals <- detect_run_rule_signals(
+              data$value,
+              rep(emp_cl, nrow(data)),
+              same_side_signals = runs_signals
+            )
 
             debug_data <- data.frame(
               Row = 1:nrow(data),
@@ -826,7 +1097,10 @@ server <- function(input, output, session) {
               Value = round(safe_numeric(data$value), 3),
               Centerline = round(emp_cl, 3),
               Above_Centerline = safe_numeric(data$value) > emp_cl,
-              Runs_Signal = runs_signals
+              Same_Side_8 = rule_signals$same_side_8,
+              Trend_6 = rule_signals$trend_6,
+              Alternating_14 = rule_signals$alternating_14,
+              Any_Run_Rule = rule_signals$any_run_rule
             )
           }
 
@@ -865,7 +1139,7 @@ server <- function(input, output, session) {
 
   # Create reactive plot for run chart with IMPROVED data processing
   run_plot <- reactive({
-    data <- filtered_data()
+    data <- analytical_data()
     req(data)
 
     # IMPROVED: Better data validation
@@ -897,6 +1171,13 @@ server <- function(input, output, session) {
     run_series <- prepare_grouped_chart_lines(data, input$grouping_var)
     data <- run_series$data
     run_labels <- run_series$labels
+    observation_axis <- "observation" %in% names(data)
+    data$.chart_x <- if (observation_axis) data$observation else data$date
+    run_labels$.label_x <- if (observation_axis) {
+      run_labels$observation
+    } else {
+      run_labels$.label_date
+    }
 
     title_text <- if (is.null(input$run_title) || input$run_title == "") {
       "Run Chart"
@@ -913,18 +1194,12 @@ server <- function(input, output, session) {
       return(empty_chart_message("Cannot calculate median - insufficient data"))
     }
 
-    # Calculate date range for proper text positioning
-    date_range <- max(data$date) - min(data$date)
-    start_text_pos <- min(data$date) - date_range * 0.05 # 5% before start
-    end_text_pos <- max(data$date) + date_range * 0.05 # 5% after end
-
-    # Smart date formatting
-    all_jan_first <- all(format(data$date, "%m-%d") == "01-01", na.rm = TRUE)
-
-    if (all_jan_first) {
-      date_format <- "%Y"
-      date_breaks_interval <- "1 year"
-    } else {
+    if (!observation_axis) {
+      all_jan_first <- all(format(data$date, "%m-%d") == "01-01", na.rm = TRUE)
+      if (all_jan_first) {
+        date_format <- "%Y"
+        date_breaks_interval <- "1 year"
+      } else {
       date_format <- "%Y-%m-%d"
       date_range_days <- as.numeric(
         max(data$date, na.rm = TRUE) - min(data$date, na.rm = TRUE)
@@ -938,11 +1213,12 @@ server <- function(input, output, session) {
       } else {
         date_breaks_interval <- "1 week"
       }
+      }
     }
 
     # Create run chart with fixed formatting standards
-    ggplot(data, aes(x = date, y = value)) +
-      superintendent_date_layers(data$date) +
+    chart <- ggplot(data, aes(x = .chart_x, y = value)) +
+      (if (observation_axis) list() else superintendent_date_layers(data$date)) +
 
       # Lines: darkgray, linewidth 1.2
       geom_line(aes(group = .plot_group), color = "darkgray", linewidth = 1.2) +
@@ -952,9 +1228,9 @@ server <- function(input, output, session) {
 
       geom_text(
         data = run_labels,
-        aes(x = date, y = value, label = .plot_group),
+        aes(x = .label_x, y = value, label = .plot_group),
         inherit.aes = FALSE,
-        hjust = -0.1,
+        hjust = 0,
         size = 5,
         fontface = "bold"
       ) +
@@ -970,7 +1246,7 @@ server <- function(input, output, session) {
 
       # Median label above the line
       geom_text(
-        aes(x = min(date), y = median_value, label = "Median"),
+        aes(x = min(.chart_x), y = median_value, label = "Median"),
         color = "red",
         vjust = -0.5,
         hjust = 0,
@@ -988,18 +1264,11 @@ server <- function(input, output, session) {
         expand = expansion(mult = c(0.10, 0.10))
       ) +
 
-      # X-axis formatting
-      scale_x_date(
-        date_labels = date_format,
-        date_breaks = date_breaks_interval,
-        expand = expansion(mult = c(0.05, 0.25))
-      ) +
-
       labs(
         title = title_text,
         subtitle = subtitle_text,
         caption = caption_text,
-        x = axis_label_or_default(input$run_x_label, "Time Period"),
+        x = axis_label_or_default(input$run_x_label, if (observation_axis) "Observation" else "Time Period"),
         y = axis_label_or_default(input$run_y_label, "Value")
       ) +
 
@@ -1007,6 +1276,16 @@ server <- function(input, output, session) {
       theme(
         axis.text.x = element_text(angle = 45, hjust = 1.00)
       )
+
+    if (observation_axis) {
+      chart + scale_x_continuous(breaks = sort(unique(data$observation)))
+    } else {
+      chart + scale_x_date(
+        date_labels = date_format,
+        date_breaks = date_breaks_interval,
+        expand = expansion(mult = c(0.05, 0.25))
+      )
+    }
   })
 
   ##### CHUNK 5 #####
@@ -1016,20 +1295,23 @@ server <- function(input, output, session) {
 
   # Create reactive plot for line chart with IMPROVED data processing
   line_plot <- reactive({
-    data <- filtered_data()
+    data <- analytical_data()
     req(data)
+    observation_axis <- "observation" %in% names(data)
 
     if (!"date" %in% names(data) || !"value" %in% names(data)) {
       return(empty_chart_message("Line chart needs standardized 'date' and 'value' columns"))
     }
 
+    # raw_data() has already standardized the selected date column and, when
+    # no calendar dates exist, supplied ordered placeholder Dates. Preserve
+    # those Date values here instead of rejecting the placeholders as
+    # implausible during a second conversion.
     data <- data |>
-      dplyr::mutate(
-        date = standardize_to_date(date),
-        value = safe_numeric(value)
-      ) |>
+      dplyr::mutate(value = safe_numeric(value)) |>
       dplyr::filter(!is.na(date), !is.na(value)) |>
       dplyr::arrange(date)
+    data$.chart_x <- if (observation_axis) data$observation else data$date
 
     if (nrow(data) == 0) {
       return(empty_chart_message("No valid date/value pairs for line chart"))
@@ -1053,12 +1335,12 @@ server <- function(input, output, session) {
       input$line_caption
     }
 
-    all_jan_first <- all(format(data$date, "%m-%d") == "01-01", na.rm = TRUE)
-
-    if (all_jan_first) {
-      date_format <- "%Y"
-      date_breaks_interval <- "1 year"
-    } else {
+    if (!observation_axis) {
+      all_jan_first <- all(format(data$date, "%m-%d") == "01-01", na.rm = TRUE)
+      if (all_jan_first) {
+        date_format <- "%Y"
+        date_breaks_interval <- "1 year"
+      } else {
       date_format <- "%Y-%m-%d"
       date_range_days <- as.numeric(
         max(data$date, na.rm = TRUE) - min(data$date, na.rm = TRUE)
@@ -1073,11 +1355,13 @@ server <- function(input, output, session) {
       } else {
         date_breaks_interval <- "1 week"
       }
+      }
     }
 
     # Resolve grouping variable.  When a valid grouping column is selected
-    # (e.g. "series" from auto-pivoted wide data, or any other categorical
-    # column), draw one line per group with end-of-line labels and a colour
+    # (e.g. "series" from auto-pivoted wide data, a numeric tested-grade
+    # column, or another discrete column), draw one line per group with
+    # end-of-line labels and a colour
     # scale.  When no valid grouping column exists, draw a single blue line
     # exactly as before (group = 1 keeps ggplot from treating every point as
     # a distinct group and refusing to draw any line at all).
@@ -1085,32 +1369,42 @@ server <- function(input, output, session) {
     use_groups <- !is.null(group_var) &&
                   group_var != "" &&
                   group_var %in% base::names(data) &&
-                  !is.numeric(data[[group_var]])
+                  any(!is.na(data[[group_var]]))
 
     if (use_groups) {
 
       # Make grouping variable a factor so colour scale is discrete.
       data <- make_discrete_group(data, group_var)
 
-      # One label per group at its last (rightmost) date point.
+      # Position each label in reserved space to the right of its final point.
       label_data <- grouped_line_endpoints(data, group_var)
+      label_data <- offset_line_end_labels(label_data, data$date)
+      label_data$.label_x <- if (observation_axis) {
+        label_data$observation
+      } else {
+        label_data$.label_date
+      }
 
-      ggplot2::ggplot(
+      chart <- ggplot2::ggplot(
         data,
         ggplot2::aes(
-          x     = date,
+          x     = .chart_x,
           y     = value,
           colour = .plot_group,
           group  = .plot_group
         )
       ) +
-        superintendent_date_layers(data$date) +
+        (if (observation_axis) list() else superintendent_date_layers(data$date)) +
         ggplot2::geom_line(linewidth = 1.3) +
         ggplot2::geom_point(size = 3.5) +
         ggplot2::geom_text(
           data = label_data,
-          ggplot2::aes(label = .plot_group, colour = .plot_group),
-          hjust        = -0.1,
+          ggplot2::aes(
+            x = .label_x,
+            label = .plot_group,
+            colour = .plot_group
+          ),
+          hjust        = 0,
           vjust        = 0.4,
           size         = 5,
           fontface     = "bold",
@@ -1125,17 +1419,11 @@ server <- function(input, output, session) {
           },
           expand = ggplot2::expansion(mult = c(0.10, 0.15))
         ) +
-        ggplot2::scale_x_date(
-          date_labels  = date_format,
-          date_breaks  = date_breaks_interval,
-          # Extra right margin so end-of-line labels don't get clipped.
-          expand = ggplot2::expansion(mult = c(0.05, 0.30))
-        ) +
         ggplot2::labs(
           title    = title_text,
           subtitle = subtitle_text,
           caption  = caption_text,
-          x        = axis_label_or_default(input$line_x_label, "Time Period"),
+          x        = axis_label_or_default(input$line_x_label, if (observation_axis) "Observation" else "Time Period"),
           y        = axis_label_or_default(input$line_y_label, "Value")
         ) +
         dashboard_chart_theme() +
@@ -1143,24 +1431,34 @@ server <- function(input, output, session) {
           axis.text.x = ggplot2::element_text(angle = 45, hjust = 1.00)
         )
 
+      if (observation_axis) {
+        chart + ggplot2::scale_x_continuous(
+          breaks = sort(unique(data$observation)),
+          expand = ggplot2::expansion(mult = c(0.05, 0.15))
+        )
+      } else {
+        chart + ggplot2::scale_x_date(
+          date_labels = date_format,
+          date_breaks = date_breaks_interval,
+          expand = ggplot2::expansion(mult = c(0.05, 0.30))
+        )
+      }
+
     } else {
 
       # ---- Single-line fallback (original behaviour) ----------------------
       # group = 1 is required when no grouping column is used; without it,
       # ggplot treats every (date, value) pair as its own one-point group and
       # draws no connecting line.
-      ggplot2::ggplot(data, ggplot2::aes(x = date, y = value, group = 1)) +
-        superintendent_date_layers(data$date) +
+      chart <- ggplot2::ggplot(data, ggplot2::aes(x = .chart_x, y = value, group = 1)) +
+        (if (observation_axis) list() else superintendent_date_layers(data$date)) +
         ggplot2::geom_line(linewidth = 1.3, color = "steelblue") +
         ggplot2::geom_point(size = 3.5, color = "steelblue") +
-        ggplot2::geom_text(
+        (if (observation_axis) list() else ggplot2::geom_text(
           ggplot2::aes(label = format(date, "%Y")),
-          nudge_y       = 0.015,
-          size          = 6,
-          fontface      = "bold",
-          color         = "black",
-          check_overlap = TRUE
-        ) +
+          nudge_y = 0.015, size = 6, fontface = "bold",
+          color = "black", check_overlap = TRUE
+        )) +
         ggplot2::scale_y_continuous(
           labels = if (input$format_as_percentage) {
             scales::percent_format(accuracy = 0.1)
@@ -1169,22 +1467,27 @@ server <- function(input, output, session) {
           },
           expand = ggplot2::expansion(mult = c(0.10, 0.15))
         ) +
-        ggplot2::scale_x_date(
-          date_labels = date_format,
-          date_breaks = date_breaks_interval,
-          expand = ggplot2::expansion(mult = c(0.05, 0.15))
-        ) +
         ggplot2::labs(
           title    = title_text,
           subtitle = subtitle_text,
           caption  = caption_text,
-          x        = axis_label_or_default(input$line_x_label, "Time Period"),
+          x        = axis_label_or_default(input$line_x_label, if (observation_axis) "Observation" else "Time Period"),
           y        = axis_label_or_default(input$line_y_label, "Value")
         ) +
         dashboard_chart_theme() +
         ggplot2::theme(
           axis.text.x = ggplot2::element_text(angle = 45, hjust = 1.00)
         )
+
+      if (observation_axis) {
+        chart + ggplot2::scale_x_continuous(breaks = sort(unique(data$observation)))
+      } else {
+        chart + ggplot2::scale_x_date(
+          date_labels = date_format,
+          date_breaks = date_breaks_interval,
+          expand = ggplot2::expansion(mult = c(0.05, 0.15))
+        )
+      }
 
     } # end single-line fallback
 
@@ -1196,7 +1499,7 @@ server <- function(input, output, session) {
   # FIXED: Create reactive plot for expectation chart with IMPROVED runs analysis and data processing
   # UPDATED: Added auto-correlation adjustment option with horizontal annotation boxes
   control_plot <- reactive({
-    data <- filtered_data()
+    data <- analytical_data()
     req(data)
 
     # IMPROVED: Better data validation
@@ -1222,6 +1525,13 @@ server <- function(input, output, session) {
     control_series <- prepare_grouped_chart_lines(data, input$grouping_var)
     data <- control_series$data
     control_labels <- control_series$labels
+    observation_axis <- "observation" %in% names(data)
+    data$.chart_x <- if (observation_axis) data$observation else data$date
+    control_labels$.label_x <- if (observation_axis) {
+      control_labels$observation
+    } else {
+      control_labels$.label_date
+    }
 
     title_text <- if (
       is.null(input$control_title) || input$control_title == ""
@@ -1241,12 +1551,18 @@ server <- function(input, output, session) {
       input$control_caption
     }
 
-    # Better recalculation logic with date range checking
+    # Recalculate from either a calendar date or an ordinal observation.
+    recalc_point <- if (observation_axis) {
+      suppressWarnings(as.numeric(input$recalc_observation))
+    } else {
+      input$recalc_date
+    }
     recalc_enabled <- !is.null(input$enable_recalc) &&
       input$enable_recalc &&
-      !is.null(input$recalc_date) &&
-      input$recalc_date >= min(data$date, na.rm = TRUE) &&
-      input$recalc_date <= max(data$date, na.rm = TRUE)
+      length(recalc_point) == 1L &&
+      !is.na(recalc_point) &&
+      recalc_point >= min(data$.chart_x, na.rm = TRUE) &&
+      recalc_point <= max(data$.chart_x, na.rm = TRUE)
 
     # Check if auto-correlation adjustment is enabled
     use_autocorr <- !is.null(input$use_autocorr_modifier) &&
@@ -1262,11 +1578,11 @@ server <- function(input, output, session) {
 
     if (recalc_enabled) {
       # RECALCULATION MODE: Split data and calculate separate expectation limits
-      recalc_date <- input$recalc_date
+      recalc_date <- recalc_point
 
       # Split data into two segments
-      data_before <- data[data$date < recalc_date, ]
-      data_after <- data[data$date >= recalc_date, ]
+      data_before <- data[data$.chart_x < recalc_date, ]
+      data_after <- data[data$.chart_x >= recalc_date, ]
 
       if (sum(!is.na(data_before$value)) < 2L) {
         return(empty_chart_message(
@@ -1352,19 +1668,29 @@ server <- function(input, output, session) {
 
       # Calculate sigma signals using appropriate limits for each segment
       data$sigma_signals <- ifelse(
-        data$date < recalc_date,
+        data$.chart_x < recalc_date,
         data$value > emp_ucl_orig | data$value < emp_lcl_orig,
         data$value > emp_ucl_recalc | data$value < emp_lcl_recalc
       )
 
       # Use improved runs analysis for recalculation mode
-      data$runs_signal <- detect_runs_signals_recalc(
+      same_side_signals <- detect_runs_signals_recalc(
         data$value,
         emp_cl_orig,
         emp_cl_recalc,
-        data$date,
+        data$.chart_x,
         recalc_date
       )
+      run_rules <- detect_run_rule_signals(
+        data$value,
+        ifelse(data$.chart_x < recalc_date, emp_cl_orig, emp_cl_recalc),
+        same_side_signals = same_side_signals,
+        segment = data$.chart_x >= recalc_date
+      )
+      data$same_side_signal <- run_rules$same_side_8
+      data$trend_signal <- run_rules$trend_6
+      data$alternating_signal <- run_rules$alternating_14
+      data$runs_signal <- run_rules$any_run_rule
 
       # Create annotation data for original limits - HORIZONTAL FORMAT
       annotation_text_orig <- paste0(
@@ -1387,7 +1713,7 @@ server <- function(input, output, session) {
       }
 
       annotation_data_orig <- data.frame(
-        x_pos = min(data$date) + as.numeric(diff(range(data$date))) * 0.02,
+        x_pos = min(data$.chart_x) + as.numeric(diff(range(data$.chart_x))) * 0.02,
         y_pos = emp_ucl_orig + (emp_ucl_orig - emp_lcl_orig) * 0.15, # Moved higher
         label = annotation_text_orig
       )
@@ -1395,7 +1721,7 @@ server <- function(input, output, session) {
       # Move recalculated annotation box to the right - HORIZONTAL FORMAT
       annotation_text_recalc <- paste0(
         "Recalculated (from ",
-        format(recalc_date, "%Y-%m-%d"),
+        if (observation_axis) recalc_date else format(recalc_date, "%Y-%m-%d"),
         "): UCL = ",
         round(emp_ucl_recalc, 2),
         " | CL = ",
@@ -1413,20 +1739,16 @@ server <- function(input, output, session) {
       }
 
       annotation_data_recalc <- data.frame(
-        x_pos = min(data$date) + as.numeric(diff(range(data$date))) * 0.55,
+        x_pos = min(data$.chart_x) + as.numeric(diff(range(data$.chart_x))) * 0.55,
         y_pos = emp_lcl_orig - (emp_ucl_orig - emp_lcl_orig) * 0.08,
         label = annotation_text_recalc
       )
 
       # Create annotation data for runs analysis
       annotation_data_runs <- data.frame(
-        x_pos = min(data$date) + as.numeric(diff(range(data$date))) * 0.02,
+        x_pos = min(data$.chart_x) + as.numeric(diff(range(data$.chart_x))) * 0.02,
         y_pos = emp_lcl_orig - (emp_ucl_orig - emp_lcl_orig) * 0.15,
-        label = ifelse(
-          any(data$runs_signal, na.rm = TRUE),
-          "Runs Signal Detected",
-          "No Runs Signal"
-        )
+        label = run_rule_summary(run_rules)
       )
     } else {
       # STANDARD MODE: Original untrended expectation chart
@@ -1470,11 +1792,20 @@ server <- function(input, output, session) {
       data$sigma_signals <- data$value > emp_ucl | data$value < emp_lcl
 
       # Use improved runs analysis
-      data$runs_signal <- detect_runs_signals(
+      same_side_signals <- detect_runs_signals(
         data$value,
         rep(emp_cl, nrow(data)),
         data$date
       )
+      run_rules <- detect_run_rule_signals(
+        data$value,
+        rep(emp_cl, nrow(data)),
+        same_side_signals = same_side_signals
+      )
+      data$same_side_signal <- run_rules$same_side_8
+      data$trend_signal <- run_rules$trend_6
+      data$alternating_signal <- run_rules$alternating_14
+      data$runs_signal <- run_rules$any_run_rule
 
       # Create annotation data for limits - HORIZONTAL FORMAT
       annotation_text <- paste0(
@@ -1525,30 +1856,26 @@ server <- function(input, output, session) {
       }
 
       annotation_data_limits <- data.frame(
-        x_pos = min(data$date) + as.numeric(diff(range(data$date))) * 0.02,
+        x_pos = min(data$.chart_x) + as.numeric(diff(range(data$.chart_x))) * 0.02,
         y_pos = emp_ucl + (emp_ucl - emp_lcl) * 0.15, # Moved higher
         label = annotation_text
       )
 
       # Create annotation data for runs analysis
       annotation_data_runs <- data.frame(
-        x_pos = min(data$date) + as.numeric(diff(range(data$date))) * 0.02,
+        x_pos = min(data$.chart_x) + as.numeric(diff(range(data$.chart_x))) * 0.02,
         y_pos = emp_lcl - (emp_ucl - emp_lcl) * 0.05,
-        label = ifelse(
-          any(data$runs_signal, na.rm = TRUE),
-          "Runs Signal Detected",
-          "No Runs Signal"
-        )
+        label = run_rule_summary(run_rules)
       )
     }
 
     # Smart date formatting
-    all_jan_first <- all(format(data$date, "%m-%d") == "01-01", na.rm = TRUE)
+    all_jan_first <- !observation_axis && all(format(data$date, "%m-%d") == "01-01", na.rm = TRUE)
 
-    if (all_jan_first) {
+    if (!observation_axis && all_jan_first) {
       date_format <- "%Y"
       date_breaks_interval <- "1 year"
-    } else {
+    } else if (!observation_axis) {
       date_format <- "%Y-%m-%d"
       date_range_days <- as.numeric(
         max(data$date, na.rm = TRUE) - min(data$date, na.rm = TRUE)
@@ -1565,8 +1892,8 @@ server <- function(input, output, session) {
     }
 
     # Create expectation chart plot
-    p <- ggplot(data, aes(x = date, y = value)) +
-      superintendent_date_layers(data$date) +
+    p <- ggplot(data, aes(x = .chart_x, y = value)) +
+      (if (observation_axis) list() else superintendent_date_layers(data$date)) +
 
       # Connect the dots with lines
       geom_line(aes(group = .plot_group), color = "darkgray", linewidth = 1.2) +
@@ -1576,9 +1903,9 @@ server <- function(input, output, session) {
       scale_color_manual(values = c("TRUE" = "red", "FALSE" = "blue")) +
       geom_text(
         data = control_labels,
-        aes(x = date, y = value, label = .plot_group),
+        aes(x = .label_x, y = value, label = .plot_group),
         inherit.aes = FALSE,
-        hjust = -0.1,
+        hjust = 0,
         size = 5,
         fontface = "bold"
       )
@@ -1593,7 +1920,7 @@ server <- function(input, output, session) {
       # Original centerline (before recalc date)
       p <- p +
         geom_line(
-          aes(y = ifelse(date < recalc_date, emp_cl_orig, NA)),
+          aes(y = ifelse(.chart_x < recalc_date, emp_cl_orig, NA)),
           color = "blue",
           linewidth = 1,
           linetype = centerline_style
@@ -1601,7 +1928,7 @@ server <- function(input, output, session) {
 
         # Recalculated centerline (after recalc date)
         geom_line(
-          aes(y = ifelse(date >= recalc_date, emp_cl_recalc, NA)),
+          aes(y = ifelse(.chart_x >= recalc_date, emp_cl_recalc, NA)),
           color = "green",
           linewidth = 1,
           linetype = centerline_style
@@ -1609,13 +1936,13 @@ server <- function(input, output, session) {
 
         # Original expectation limits (before recalc date)
         geom_line(
-          aes(y = ifelse(date < recalc_date, emp_ucl_orig, NA)),
+          aes(y = ifelse(.chart_x < recalc_date, emp_ucl_orig, NA)),
           color = "red",
           linetype = "solid",
           linewidth = 1
         ) +
         geom_line(
-          aes(y = ifelse(date < recalc_date, emp_lcl_orig, NA)),
+          aes(y = ifelse(.chart_x < recalc_date, emp_lcl_orig, NA)),
           color = "red",
           linetype = "solid",
           linewidth = 1
@@ -1623,13 +1950,13 @@ server <- function(input, output, session) {
 
         # Recalculated expectation limits (after recalc date)
         geom_line(
-          aes(y = ifelse(date >= recalc_date, emp_ucl_recalc, NA)),
+          aes(y = ifelse(.chart_x >= recalc_date, emp_ucl_recalc, NA)),
           color = "red",
           linetype = "dashed",
           linewidth = 1
         ) +
         geom_line(
-          aes(y = ifelse(date >= recalc_date, emp_lcl_recalc, NA)),
+          aes(y = ifelse(.chart_x >= recalc_date, emp_lcl_recalc, NA)),
           color = "red",
           linetype = "dashed",
           linewidth = 1
@@ -1683,7 +2010,7 @@ server <- function(input, output, session) {
         # Labels for original limits
         geom_text(
           aes(
-            x = dplyr::first(date),
+            x = dplyr::first(.chart_x),
             y = dplyr::first(emp_cl_orig),
             label = "Original Expectation"
           ),
@@ -1772,7 +2099,7 @@ server <- function(input, output, session) {
         # Standard labels
         geom_text(
           aes(
-            x = dplyr::first(date),
+            x = dplyr::first(.chart_x),
             y = dplyr::first(emp_cl),
             label = "Avg Expectation"
           ),
@@ -1784,7 +2111,7 @@ server <- function(input, output, session) {
 
         geom_text(
           aes(
-            x = dplyr::last(date),
+            x = dplyr::last(.chart_x),
             y = dplyr::last(emp_cl),
             label = format(round(dplyr::last(emp_cl), 2), nsmall = 2)
           ),
@@ -1796,7 +2123,7 @@ server <- function(input, output, session) {
 
         geom_text(
           aes(
-            x = dplyr::first(date) + 0.5,
+            x = dplyr::first(.chart_x) + 0.5,
             y = dplyr::first(emp_ucl),
             label = "Upper Expectation"
           ),
@@ -1808,7 +2135,7 @@ server <- function(input, output, session) {
 
         geom_text(
           aes(
-            x = dplyr::last(date),
+            x = dplyr::last(.chart_x),
             y = dplyr::last(emp_ucl),
             label = format(round(dplyr::last(emp_ucl), 2), nsmall = 2)
           ),
@@ -1820,7 +2147,7 @@ server <- function(input, output, session) {
 
         geom_text(
           aes(
-            x = dplyr::first(date) + 0.5,
+            x = dplyr::first(.chart_x) + 0.5,
             y = dplyr::first(emp_lcl),
             label = "Lower Expectation"
           ),
@@ -1832,7 +2159,7 @@ server <- function(input, output, session) {
 
         geom_text(
           aes(
-            x = dplyr::last(date),
+            x = dplyr::last(.chart_x),
             y = dplyr::last(emp_lcl),
             label = format(round(dplyr::last(emp_lcl), 2), nsmall = 2)
           ),
@@ -1855,32 +2182,37 @@ server <- function(input, output, session) {
         expand = expansion(mult = c(0.20, 0.20))
       ) +
 
-      # X-axis formatting
-      scale_x_date(
-        date_labels = date_format,
-        date_breaks = date_breaks_interval,
-        expand = expansion(mult = c(0.1, 0.25))
-      ) +
-
       labs(
         title = title_text,
         subtitle = subtitle_text,
         caption = caption_text,
-        x = axis_label_or_default(input$control_x_label, "Time Period"),
+        x = axis_label_or_default(input$control_x_label, if (observation_axis) "Observation" else "Time Period"),
         y = axis_label_or_default(input$control_y_label, "Value")
       ) +
 
       dashboard_chart_theme() +
       theme(
-        axis.text.x = element_text(angle = 45, hjust = 1.00)
+        axis.text.x = element_text(angle = 45, hjust = 1.00),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()
       )
+
+    if (observation_axis) {
+      p <- p + scale_x_continuous(breaks = sort(unique(data$observation)))
+    } else {
+      p <- p + scale_x_date(
+        date_labels = date_format,
+        date_breaks = date_breaks_interval,
+        expand = expansion(mult = c(0.1, 0.25))
+      )
+    }
 
     return(p)
   })
 
   # Create reactive plot for bar chart with IMPROVED data processing
   bar_plot <- reactive({
-    data <- filtered_data()
+    data <- analytical_data()
     req(data)
 
     # IMPROVED: Better data validation
@@ -1990,7 +2322,7 @@ server <- function(input, output, session) {
 
   # Create reactive plot for trended expectation chart with IMPROVED data processing
   trended_plot <- reactive({
-    data <- filtered_data()
+    data <- analytical_data()
     req(data)
 
     # IMPROVED: Better data validation
@@ -2016,6 +2348,13 @@ server <- function(input, output, session) {
     trended_series <- prepare_grouped_chart_lines(data, input$grouping_var)
     data <- trended_series$data
     trended_labels <- trended_series$labels
+    observation_axis <- "observation" %in% names(data)
+    data$.chart_x <- if (observation_axis) data$observation else data$date
+    trended_labels$.label_x <- if (observation_axis) {
+      trended_labels$observation
+    } else {
+      trended_labels$.label_date
+    }
 
     title_text <- if (
       is.null(input$trended_title) || input$trended_title == ""
@@ -2035,8 +2374,12 @@ server <- function(input, output, session) {
       input$trended_caption
     }
 
-    # Convert dates to numeric for linear modeling (days since first date)
-    data$date_numeric <- as.numeric(data$date - min(data$date))
+    # Use elapsed days for dated series and ordinal position for sequences.
+    data$date_numeric <- if (observation_axis) {
+      data$observation - min(data$observation)
+    } else {
+      as.numeric(data$date - min(data$date))
+    }
 
     # IMPROVED: Fit linear model with robust error handling
     trend_model <- NULL
@@ -2069,7 +2412,7 @@ server <- function(input, output, session) {
     # single-point noise at the extremes does not distort the rate).
     # Falls back to NA when the model failed or start value is zero/negative.
     cagr_value <- tryCatch({
-      if (!is.null(trend_model) && nrow(data) >= 2) {
+      if (!observation_axis && !is.null(trend_model) && nrow(data) >= 2) {
         start_val <- data$trended_cl[which.min(data$date)]
         end_val   <- data$trended_cl[which.max(data$date)]
         n_years   <- as.numeric(
@@ -2090,15 +2433,24 @@ server <- function(input, output, session) {
       data$value < data$trended_lcl
 
     # Use improved runs analysis for trended chart
-    data$runs_signal <- detect_runs_signals(
+    same_side_signals <- detect_runs_signals(
       data$value,
       data$trended_cl,
       data$date
     )
+    run_rules <- detect_run_rule_signals(
+      data$value,
+      data$trended_cl,
+      same_side_signals = same_side_signals
+    )
+    data$same_side_signal <- run_rules$same_side_8
+    data$trend_signal <- run_rules$trend_6
+    data$alternating_signal <- run_rules$alternating_14
+    data$runs_signal <- run_rules$any_run_rule
 
     # Create annotation data for limits
     annotation_data_limits <- data.frame(
-      x_pos = min(data$date) + as.numeric(diff(range(data$date))) * 0.02,
+      x_pos = min(data$.chart_x) + as.numeric(diff(range(data$.chart_x))) * 0.02,
       y_pos = max(data$trended_ucl) +
         (max(data$trended_ucl) - min(data$trended_lcl)) * 0.02,
       label = if (!is.null(trend_model)) {
@@ -2116,7 +2468,7 @@ server <- function(input, output, session) {
           round(coef(trend_model)[1], 2),
           " + ",
           round(coef(trend_model)[2], 4),
-          " × days<br>",
+          if (observation_axis) " × observations<br>" else " × days<br>",
           "Bias-corrected σ = ",
           round(bias_corrected_sd, 2),
           cagr_line
@@ -2132,23 +2484,19 @@ server <- function(input, output, session) {
 
     # Create annotation data for runs analysis
     annotation_data_runs <- data.frame(
-      x_pos = min(data$date) + as.numeric(diff(range(data$date))) * 0.02,
+      x_pos = min(data$.chart_x) + as.numeric(diff(range(data$.chart_x))) * 0.02,
       y_pos = min(data$trended_lcl) -
         (max(data$trended_ucl) - min(data$trended_lcl)) * 0.05,
-      label = ifelse(
-        any(data$runs_signal, na.rm = TRUE),
-        "Runs Signal Detected",
-        "No Runs Signal"
-      )
+      label = run_rule_summary(run_rules)
     )
 
     # Smart date formatting
-    all_jan_first <- all(format(data$date, "%m-%d") == "01-01", na.rm = TRUE)
+    all_jan_first <- !observation_axis && all(format(data$date, "%m-%d") == "01-01", na.rm = TRUE)
 
-    if (all_jan_first) {
+    if (!observation_axis && all_jan_first) {
       date_format <- "%Y"
       date_breaks_interval <- "1 year"
-    } else {
+    } else if (!observation_axis) {
       date_format <- "%Y-%m-%d"
       date_range_days <- as.numeric(
         max(data$date, na.rm = TRUE) - min(data$date, na.rm = TRUE)
@@ -2170,8 +2518,8 @@ server <- function(input, output, session) {
     any_runs_signal <- any(data$runs_signal, na.rm = TRUE)
     centerline_style <- if (any_runs_signal) "dashed" else "solid"
 
-    ggplot(data, aes(x = date, y = value)) +
-      superintendent_date_layers(data$date) +
+    chart <- ggplot(data, aes(x = .chart_x, y = value)) +
+      (if (observation_axis) list() else superintendent_date_layers(data$date)) +
 
       # Connect the dots with lines
       geom_line(aes(group = .plot_group), color = "darkgray", linewidth = 1.2) +
@@ -2182,9 +2530,9 @@ server <- function(input, output, session) {
 
       geom_text(
         data = trended_labels,
-        aes(x = date, y = value, label = .plot_group),
+        aes(x = .label_x, y = value, label = .plot_group),
         inherit.aes = FALSE,
-        hjust = -0.1,
+        hjust = 0,
         size = 5,
         fontface = "bold"
       ) +
@@ -2238,7 +2586,7 @@ server <- function(input, output, session) {
       # Label for trended centerline at start
       geom_text(
         aes(
-          x = dplyr::first(date),
+          x = dplyr::first(.chart_x),
           y = dplyr::first(trended_cl),
           label = "Trended Expectation"
         ),
@@ -2251,7 +2599,7 @@ server <- function(input, output, session) {
       # Value for trended centerline at end
       geom_text(
         aes(
-          x = dplyr::last(date),
+          x = dplyr::last(.chart_x),
           y = dplyr::last(trended_cl),
           label = format(round(dplyr::last(trended_cl), 2), nsmall = 2)
         ),
@@ -2264,7 +2612,7 @@ server <- function(input, output, session) {
       # Label for upper limit at start
       geom_text(
         aes(
-          x = dplyr::first(date) + 0.5,
+          x = dplyr::first(.chart_x) + 0.5,
           y = dplyr::first(trended_ucl),
           label = "Upper Trend Limit"
         ),
@@ -2277,7 +2625,7 @@ server <- function(input, output, session) {
       # Value for upper limit at end
       geom_text(
         aes(
-          x = dplyr::last(date),
+          x = dplyr::last(.chart_x),
           y = dplyr::last(trended_ucl),
           label = format(round(dplyr::last(trended_ucl), 2), nsmall = 2)
         ),
@@ -2290,7 +2638,7 @@ server <- function(input, output, session) {
       # Label for lower limit at start
       geom_text(
         aes(
-          x = dplyr::first(date) + 0.5,
+          x = dplyr::first(.chart_x) + 0.5,
           y = dplyr::first(trended_lcl),
           label = "Lower Trend Limit"
         ),
@@ -2303,7 +2651,7 @@ server <- function(input, output, session) {
       # Value for lower limit at end
       geom_text(
         aes(
-          x = dplyr::last(date),
+          x = dplyr::last(.chart_x),
           y = dplyr::last(trended_lcl),
           label = format(round(dplyr::last(trended_lcl), 2), nsmall = 2)
         ),
@@ -2323,25 +2671,30 @@ server <- function(input, output, session) {
         expand = expansion(mult = c(0.20, 0.20))
       ) +
 
-      # X-axis formatting
-      scale_x_date(
-        date_labels = date_format,
-        date_breaks = date_breaks_interval,
-        expand = expansion(mult = c(0.1, 0.25))
-      ) +
-
       labs(
         title = title_text,
         subtitle = subtitle_text,
         caption = caption_text,
-        x = axis_label_or_default(input$trended_x_label, "Time Period"),
+        x = axis_label_or_default(input$trended_x_label, if (observation_axis) "Observation" else "Time Period"),
         y = axis_label_or_default(input$trended_y_label, "Value")
       ) +
 
       dashboard_chart_theme() +
       theme(
-        axis.text.x = element_text(angle = 45, hjust = 1.00)
+        axis.text.x = element_text(angle = 45, hjust = 1.00),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()
       )
+
+    if (observation_axis) {
+      chart + scale_x_continuous(breaks = sort(unique(data$observation)))
+    } else {
+      chart + scale_x_date(
+        date_labels = date_format,
+        date_breaks = date_breaks_interval,
+        expand = expansion(mult = c(0.1, 0.25))
+      )
+    }
   })
 
   # Create reactive plot for educational cohort tracking with IMPROVED data processing
@@ -2661,13 +3014,13 @@ server <- function(input, output, session) {
       "^pct$",
       "^percent$",
       "^amount$",
-      "^count$",
-      "^measure$"
+      "^count$"
     )
     value_pattern <- paste(value_patterns, collapse = "|")
     filter_columns <- names(data)[
       !grepl(value_pattern, names(data), ignore.case = TRUE)
     ]
+    if ("observation" %in% names(data)) filter_columns <- setdiff(filter_columns, "date")
 
     # Populated for any categorical column whose choice list is large enough to
     # need server-side selectize; applied via updateSelectizeInput() below,
@@ -2785,13 +3138,13 @@ server <- function(input, output, session) {
       "^pct$",
       "^percent$",
       "^amount$",
-      "^count$",
-      "^measure$"
+      "^count$"
     )
     value_pattern <- paste(value_patterns, collapse = "|")
     filter_columns <- names(data)[
       !grepl(value_pattern, names(data), ignore.case = TRUE)
     ]
+    if ("observation" %in% names(data)) filter_columns <- setdiff(filter_columns, "date")
 
     for (col in filter_columns) {
       if (
@@ -2841,23 +3194,19 @@ server <- function(input, output, session) {
     }
   })
 
-  # Reactive filtered data with IMPROVED data processing
-  filtered_data <- reactive({
-    data <- raw_data()
-    req(data)
-
+  apply_current_filters <- function(data) {
     value_patterns <- c(
       "^value$",
       "^pct$",
       "^percent$",
       "^amount$",
-      "^count$",
-      "^measure$"
+      "^count$"
     )
     value_pattern <- paste(value_patterns, collapse = "|")
     filter_columns <- names(data)[
       !grepl(value_pattern, names(data), ignore.case = TRUE)
     ]
+    if ("observation" %in% names(data)) filter_columns <- setdiff(filter_columns, "date")
 
     filtered <- data
 
@@ -2907,13 +3256,31 @@ server <- function(input, output, session) {
       }
     }
 
-    return(filtered)
+    filtered
+  }
+
+  # Reactive filtered data with IMPROVED data processing
+  filtered_data <- reactive({
+    data <- raw_data()
+    req(data)
+    apply_current_filters(data)
+  })
+
+  # One shared analytical input. Canonical and flat-file tools receive the exact
+  # filtered rows; downstream tools may calculate statistics but do not perform
+  # additional filtering, regrouping, or aggregation.
+  analytical_data <- reactive({
+    filtered_data()
   })
 
   # Render data table
   output$data_table <- DT::renderDataTable({
     data <- filtered_data()
     req(data)
+
+    if ("observation" %in% names(data)) {
+      data <- dplyr::select(data, -date, -dplyr::any_of("Year"))
+    }
 
     DT::datatable(
       data,

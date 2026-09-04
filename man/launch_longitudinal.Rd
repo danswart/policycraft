@@ -51,6 +51,17 @@ function is normally called for its side effect of starting the app.
 Starts policycraft's interactive longitudinal-analysis tool. The application
 accepts CSV, Excel, and RDS files and provides mapping, filtering,
 longitudinal charts, expectation charts, cohort views, and export controls.
+Ordinary uploads explicitly distinguish calendar dates from observation
+sequences; mappings take effect only after the user applies them. Expectation
+limits can be recalculated from a selected date or observation. Run-rule
+diagnostics include long same-side runs, six-point increasing/decreasing
+trends, and fourteen-point alternation. Every chart can be downloaded as
+PNG, SVG, PDF, or compact editable ggplot2 code for a Quarto report.
+RDS inputs may use the validated canonical longitudinal bundle contract;
+canonical series retain their registered grain, metadata, and lineage.
+Line and bar charts can group series by character, factor, date, or discrete
+numeric columns such as tested grade. Canonical filters inspect existing
+observations but do not construct new totals, averages, or ratios.
 }
 \section{Deprecated names}{
 

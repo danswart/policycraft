@@ -1,0 +1,43 @@
+table,column,type,required,definition
+bundle,schema_version,character,yes,Versioned canonical bundle contract
+observations,observation_id,character,yes,Stable unique observation identifier
+observations,observation_date,Date,yes,Stable reference date for ordering
+observations,period_start,Date,yes,Start of represented period
+observations,period_end,Date,yes,End of represented period
+observations,academic_year_end,integer,yes,Ending year of academic period
+observations,entity_id,character,yes,Stable entity identifier
+observations,entity_name,character,yes,Human-readable entity label
+observations,geographic_level,character,yes,Entity level such as district region or state
+observations,subject,character,yes,Assessment subject
+observations,tested_grade,character,yes,Reported or combined tested-grade category
+observations,student_group,character,yes,Stable student-group identifier
+observations,administration,character,yes,Source administration or declared annual aggregate
+observations,measure_id,character,yes,Foreign key to measures
+observations,unit,character,yes,Canonical unit
+observations,value,numeric,no,Reported or derived numeric value
+observations,reporting_status,character,yes,Reported derived suppressed unavailable incomplete blank or unparsed state
+observations,source_id,character,yes,Source identifier or derived marker
+observations,source_record_id,character,no,Stable source-row reference
+observations,source_field,character,no,Original source field or column
+observations,source_value,character,no,Original textual source value
+observations,series_id,character,yes,Stable analytical series identifier
+observations,derivation_id,character,no,Foreign key to derivations for derived observations
+measures,measure_id,character,yes,Stable measure identifier
+measures,meaning,character,yes,Semantic definition
+measures,unit,character,yes,Permitted canonical unit
+measures,role,character,yes,Numerator denominator reported rate estimate or analytical rate role
+measures,denominator_measure_id,character,no,Denominator relationship where applicable
+measures,permitted_aggregation_dimensions,character,yes,Dimensions across which aggregation may be proposed
+measures,aggregation_rule,character,yes,Approved or prohibited aggregation behavior
+derivations,derivation_id,character,yes,Stable calculation definition identifier
+derivations,definition,character,yes,Human-readable formula and selection rule
+derivations,retained_dimensions,character,yes,Dimensions retained in output grain
+derivations,combined_dimensions,character,yes,Dimensions combined by the derivation
+derivations,valid_start_year,integer,yes,First valid period
+derivations,valid_end_year,integer,yes,Last valid period
+derivations,missing_rule,character,yes,Required behavior for absent values
+derivations,suppression_rule,character,yes,Required behavior for suppressed values
+lineage,derived_observation_id,character,yes,Foreign key to derived observation
+lineage,source_observation_id,character,yes,Foreign key to contributing observation
+lineage,derivation_id,character,yes,Foreign key to derivation definition
+lineage,lineage_role,character,yes,Numerator denominator or selection role

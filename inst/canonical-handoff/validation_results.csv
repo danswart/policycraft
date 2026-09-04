@@ -1,0 +1,8 @@
+check_id,scope,status,result,detail
+canonical_unique_grain,all observations,pass,0,duplicates at declared observation grain
+grade_rate_reconstruction,district grade 3-8 All Students Mathematics,pass,104 / 104,count/Tests Taken matches reported whole-percent rate after half-up rounding
+combined_report_reconstruction,district All Grades Mathematics 2018-2024,fail,0 / 6,ratio of sums compared with independently reported whole-percent All Grades rate; tolerance 0.005
+required_year_counts,district 2012-2026,pass,"2012,2013,2014,2015,2016,2017,2018,2019,2021,2022,2023,2024,2025,2026",2020 has no administration; no observation is fabricated
+region_state_counts,Region 20 and Texas,unavailable,0,annual workbooks report percentages but not numerator/denominator counts
+lineage_referential_integrity,all derived observations,pass,0,lineage endpoints absent from observations
+value_ranges,canonical observations,pass,0,"proportion values outside [0,1]"

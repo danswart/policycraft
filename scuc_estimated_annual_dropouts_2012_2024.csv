@@ -1,0 +1,14 @@
+date,value,measure,school_year,grade_span,annual_dropout_rate,rate_display,enrollment_denominator,denominator_method,unit
+2012-01-01,26,Estimated Annual Dropouts,2011-12,Grades 9-12,0.006,0.6%,4300,Estimated using 2018-19 grade 9-12 share of total enrollment,students
+2013-01-01,18,Estimated Annual Dropouts,2012-13,Grades 9-12,0.004,0.4%,4474,Estimated using 2018-19 grade 9-12 share of total enrollment,students
+2014-01-01,33,Estimated Annual Dropouts,2013-14,Grades 9-12,0.007,0.7%,4644,Estimated using 2018-19 grade 9-12 share of total enrollment,students
+2015-01-01,24,Estimated Annual Dropouts,2014-15,Grades 9-12,0.005,0.5%,4819,Estimated using 2018-19 grade 9-12 share of total enrollment,students
+2016-01-01,45,Estimated Annual Dropouts,2015-16,Grades 9-12,0.009,0.9%,4983,Estimated using 2018-19 grade 9-12 share of total enrollment,students
+2017-01-01,31,Estimated Annual Dropouts,2016-17,Grades 9-12,0.006,0.6%,5110,Estimated using 2018-19 grade 9-12 share of total enrollment,students
+2018-01-01,41,Estimated Annual Dropouts,2017-18,Grades 9-12,0.008,0.8%,5159,Estimated using 2018-19 grade 9-12 share of total enrollment,students
+2019-01-01,21,Estimated Annual Dropouts,2018-19,Grades 9-12,0.004,0.4%,5210,Reported grade 9-12 enrollment,students
+2020-01-01,37,Estimated Annual Dropouts,2019-20,Grades 9-12,0.007,0.7%,5264,Reported grade 9-12 enrollment,students
+2021-01-01,58,Estimated Annual Dropouts,2020-21,Grades 9-12,0.011,1.1%,5284,Reported grade 9-12 enrollment,students
+2022-01-01,53,Estimated Annual Dropouts,2021-22,Grades 9-12,0.010,1.0%,5344,Reported grade 9-12 enrollment,students
+2023-01-01,65,Estimated Annual Dropouts,2022-23,Grades 9-12,0.012,1.2%,5379,Reported grade 9-12 enrollment,students
+2024-01-01,43,Estimated Annual Dropouts,2023-24,Grades 9-12,0.008,0.8%,5417,Reported grade 9-12 enrollment,students

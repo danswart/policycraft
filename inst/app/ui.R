@@ -68,6 +68,11 @@ ui <- bslib::page_fluid(
     )
   ),
 
+  conditionalPanel(
+    condition = "output.data_uploaded && output.is_canonical",
+    fluidRow(column(12, uiOutput("canonical_summary")))
+  ),
+
   # Row 2: Filtering Controls
   fluidRow(
     column(
@@ -89,27 +94,67 @@ ui <- bslib::page_fluid(
           "Column Mapping",
           br(),
           conditionalPanel(
-            condition = "output.data_uploaded",
+            condition = "output.data_uploaded && !output.is_canonical",
             div(
               style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #dee2e6; margin-bottom: 15px;",
-              h4("Map Date and Value Columns"),
+              h4("Map Observation/Date and Value Columns"),
               p(
-                "This app needs a Date column first and a Value column second. Pick which uploaded columns those are below — they will be renamed to \"date\" and \"value\" and moved to the front. Every other column is kept as-is. Columns are pre-selected with the app's best guess; change them if that guess is wrong."
+                "Choose the column that orders the observations and the column containing the measured values. Calendar dates remain dates; sequence numbers become an ordinal \"observation\" axis. The mapped order and value columns are moved to the front, and every other source column is kept as-is."
               ),
               fluidRow(
-                column(4, selectInput("map_date_col", "Date column:", choices = NULL)),
+                column(4, selectInput("map_date_col", "Observation or date column:", choices = NULL)),
                 column(4, selectInput("map_value_col", "Value column:", choices = NULL)),
                 column(
                   4,
                   tags$div(
-                    style = "margin-top: 26px; font-weight: 600;",
-                    textOutput("map_status")
+                    style = "margin-top: 25px;",
+                    actionButton(
+                      "apply_column_mapping",
+                      "Apply mapping to app data",
+                      class = "btn-primary",
+                      width = "100%"
+                    )
                   )
                 )
+              ),
+              radioButtons(
+                "map_order_type",
+                "Order column contains:",
+                choices = c(
+                  "Calendar dates" = "date",
+                  "Observation sequence" = "sequence"
+                ),
+                selected = "date",
+                inline = TRUE
+              ),
+              tags$div(
+                style = "margin-top: 8px; font-weight: 600;",
+                textOutput("map_status")
+              ),
+              tags$small(
+                class = "text-muted",
+                "This updates the app's working data; it does not overwrite the uploaded file."
               )
             ),
             h4("Preview of uploaded file (first 10 rows, before mapping)"),
             DT::dataTableOutput("mapping_preview_table")
+          ),
+          conditionalPanel(
+            condition = "output.data_uploaded && output.is_canonical",
+            h4("Canonical bundle metadata"),
+            p("The date and value mappings come from the validated observation contract."),
+            h5("Observation status and source identifiers"),
+            DT::dataTableOutput("canonical_status_table"),
+            h5("Measure registry"),
+            DT::dataTableOutput("canonical_measure_table"),
+            h5("Derivation registry"),
+            DT::dataTableOutput("canonical_derivation_table"),
+            h5("Observation-level lineage"),
+            DT::dataTableOutput("canonical_lineage_table"),
+            h5("Validation results"),
+            DT::dataTableOutput("canonical_validation_table"),
+            h5("Screening report and unresolved semantic warnings"),
+            DT::dataTableOutput("canonical_screening_table")
           ),
           conditionalPanel(
             condition = "!output.data_uploaded",
@@ -145,7 +190,7 @@ ui <- bslib::page_fluid(
                 column(
                   4,
                   conditionalPanel(
-                    condition = "input.enable_recalc",
+                    condition = "input.enable_recalc && !output.uses_observation_axis",
                     dateInput(
                       "recalc_date",
                       "Recalculate limits starting from:",
@@ -153,14 +198,29 @@ ui <- bslib::page_fluid(
                       min = NULL,
                       max = NULL
                     )
+                  ),
+                  conditionalPanel(
+                    condition = "input.enable_recalc && output.uses_observation_axis",
+                    selectInput(
+                      "recalc_observation",
+                      "Recalculate limits starting from observation:",
+                      choices = character(0)
+                    )
                   )
                 ),
                 column(
                   5,
                   conditionalPanel(
-                    condition = "input.enable_recalc",
+                    condition = "input.enable_recalc && !output.uses_observation_axis",
                     tags$small(
                       "Select date to split process and recalculate expectation limits",
+                      style = "color: #6c757d; margin-top: 5px; display: block;"
+                    )
+                  ),
+                  conditionalPanel(
+                    condition = "input.enable_recalc && output.uses_observation_axis",
+                    tags$small(
+                      "Select the observation where the new expectation limits begin",
                       style = "color: #6c757d; margin-top: 5px; display: block;"
                     )
                   )
@@ -312,11 +372,11 @@ ui <- bslib::page_fluid(
                   "This tab shows detailed runs analysis for debugging."
                 ),
                 tags$p(
-                  "The runs rule detects 8+ consecutive points on the same side of the centerline."
+                  "Run rules detect 8+ points on one side of the centerline, 6 steadily increasing/decreasing points, and 14 alternating points."
                 ),
                 tags$p(
                   style = "color: #666;",
-                  "Points marked TRUE have triggered a runs signal (8th point onward in each run)."
+                  "Each rule is reported separately; the combined flag is TRUE when any rule is triggered."
                 )
               ),
               br(),

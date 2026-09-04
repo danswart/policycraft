@@ -208,24 +208,6 @@ standardize_to_date <- function(x) {
   return(parsed)
 }
 
-# Helper: make a grouping column safe for ggplot discrete color/fill scales.
-# This prevents Date/numeric grouping variables from being treated as continuous
-# when scale_color_manual() or scale_fill_manual() is used.
-make_discrete_group <- function(data, group_var, new_col = ".plot_group") {
-  if (is.null(group_var) || group_var == "" || !group_var %in% names(data)) {
-    return(data)
-  }
-
-  if (inherits(data[[group_var]], "Date")) {
-    data[[new_col]] <- format(data[[group_var]], "%Y")
-  } else {
-    data[[new_col]] <- as.character(data[[group_var]])
-  }
-
-  data[[new_col]] <- factor(data[[new_col]], levels = unique(data[[new_col]]))
-  data
-}
-
 # IMPROVED: Safe statistical calculations
 safe_mean <- function(x, na.rm = TRUE) {
   x_clean <- safe_numeric(x)
@@ -340,42 +322,90 @@ detect_runs_signals <- function(
   above_cl <- rep(NA, length(values))
   above_cl[valid_indices] <- values[valid_indices] > centerline[valid_indices]
 
-  # Use run length encoding to find consecutive runs
-  valid_above <- above_cl[valid_indices]
-  runs <- rle(valid_above)
-
-  # Find runs of min_run_length+ consecutive points
-  long_runs <- runs$lengths >= min_run_length
-
-  # Initialize signal vector
+  # Evaluate contiguous windows in the original row order so missing values
+  # interrupt a run instead of joining observations across a gap.
   signals <- rep(FALSE, length(values))
-
-  if (any(long_runs)) {
-    # Calculate positions in the valid subset
-    valid_end_positions <- cumsum(runs$lengths)
-    valid_start_positions <- c(
-      1,
-      valid_end_positions[-length(valid_end_positions)] + 1
-    )
-
-    for (i in which(long_runs)) {
-      valid_run_start <- valid_start_positions[i]
-      valid_run_end <- valid_end_positions[i]
-
-      # Convert back to original indices
-      run_start_idx <- valid_indices[valid_run_start]
-      run_end_idx <- valid_indices[valid_run_end]
-
-      # Mark from the 8th point onward in this run
-      signal_start_in_valid <- valid_run_start + min_run_length - 1
-      if (signal_start_in_valid <= length(valid_indices)) {
-        signal_start_idx <- valid_indices[signal_start_in_valid]
-        signals[signal_start_idx:run_end_idx] <- TRUE
-      }
+  for (end in seq.int(min_run_length, length(values))) {
+    idx <- seq.int(end - min_run_length + 1L, end)
+    window <- above_cl[idx]
+    if (all(!is.na(window)) && length(unique(window)) == 1L) {
+      signals[end] <- TRUE
     }
   }
+  signals
+}
 
-  return(signals)
+# Nelson Rule 3: six consecutive points steadily increasing or decreasing.
+# The signal begins at the sixth point and continues for each qualifying
+# overlapping window. Missing values, ties, and segment boundaries interrupt
+# the pattern.
+detect_trend_signals <- function(values, min_points = 6L, segment = NULL) {
+  values <- safe_numeric(values)
+  n <- length(values)
+  signals <- rep(FALSE, n)
+  if (is.null(segment)) segment <- rep(1L, n)
+  if (n < min_points) return(signals)
+
+  for (end in seq.int(min_points, n)) {
+    idx <- seq.int(end - min_points + 1L, end)
+    window <- values[idx]
+    same_segment <- length(unique(segment[idx])) == 1L
+    if (same_segment && all(is.finite(window))) {
+      changes <- diff(window)
+      signals[end] <- all(changes > 0) || all(changes < 0)
+    }
+  }
+  signals
+}
+
+# Nelson Rule 4: fourteen consecutive points alternating up and down.
+detect_alternating_signals <- function(values, min_points = 14L, segment = NULL) {
+  values <- safe_numeric(values)
+  n <- length(values)
+  signals <- rep(FALSE, n)
+  if (is.null(segment)) segment <- rep(1L, n)
+  if (n < min_points) return(signals)
+
+  for (end in seq.int(min_points, n)) {
+    idx <- seq.int(end - min_points + 1L, end)
+    window <- values[idx]
+    same_segment <- length(unique(segment[idx])) == 1L
+    if (same_segment && all(is.finite(window))) {
+      directions <- sign(diff(window))
+      signals[end] <- all(directions != 0) && all(directions[-1] == -directions[-length(directions)])
+    }
+  }
+  signals
+}
+
+detect_run_rule_signals <- function(
+  values,
+  centerline,
+  same_side_signals = NULL,
+  segment = NULL
+) {
+  if (is.null(same_side_signals)) {
+    same_side_signals <- detect_runs_signals(values, centerline)
+  }
+  same_side_signals <- as.logical(same_side_signals)
+  trend_signals <- detect_trend_signals(values, segment = segment)
+  alternating_signals <- detect_alternating_signals(values, segment = segment)
+
+  data.frame(
+    same_side_8 = same_side_signals,
+    trend_6 = trend_signals,
+    alternating_14 = alternating_signals,
+    any_run_rule = same_side_signals | trend_signals | alternating_signals
+  )
+}
+
+run_rule_summary <- function(rule_data) {
+  detected <- c(
+    if (any(rule_data$same_side_8, na.rm = TRUE)) "8 on one side of centerline",
+    if (any(rule_data$trend_6, na.rm = TRUE)) "6 steadily increasing/decreasing",
+    if (any(rule_data$alternating_14, na.rm = TRUE)) "14 alternating up/down"
+  )
+  if (length(detected)) paste("Run-rule signal:", paste(detected, collapse = "; ")) else "No run-rule signal"
 }
 
 # IMPROVED: Runs analysis for recalculated charts with robust error handling
@@ -616,7 +646,7 @@ superintendent_cohort_layers <- function(cohort_data) {
   )
 }
 
-# Builds one chart tabPanel: title/subtitle/caption inputs, PNG/SVG/PDF download
+# Builds one chart tabPanel: title/subtitle/caption inputs, image/code download
 # buttons, and the plot itself. All six chart tabs share this exact layout, so
 # this replaces what used to be ~350 lines of copy-pasted UI. extra_controls
 # lets a specific tab (e.g. the recalculation options on the Untrended

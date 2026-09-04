@@ -111,8 +111,7 @@ server <- function(input, output, session) {
       "^pct$",
       "^percent$",
       "^amount$",
-      "^count$",
-      "^measure$"
+      "^count$"
     )
     value_pattern <- paste(value_patterns, collapse = "|")
     potential_groups <- names(data)[
@@ -156,8 +155,7 @@ server <- function(input, output, session) {
         "^pct$",
         "^percent$",
         "^amount$",
-        "^count$",
-        "^measure$"
+        "^count$"
       )
       value_pattern <- paste(value_patterns, collapse = "|")
       grade_like <- names(data)[
@@ -2646,8 +2644,7 @@ server <- function(input, output, session) {
       "^pct$",
       "^percent$",
       "^amount$",
-      "^count$",
-      "^measure$"
+      "^count$"
     )
     value_pattern <- paste(value_patterns, collapse = "|")
     filter_columns <- names(data)[
@@ -2770,8 +2767,7 @@ server <- function(input, output, session) {
       "^pct$",
       "^percent$",
       "^amount$",
-      "^count$",
-      "^measure$"
+      "^count$"
     )
     value_pattern <- paste(value_patterns, collapse = "|")
     filter_columns <- names(data)[
@@ -2836,8 +2832,7 @@ server <- function(input, output, session) {
       "^pct$",
       "^percent$",
       "^amount$",
-      "^count$",
-      "^measure$"
+      "^count$"
     )
     value_pattern <- paste(value_patterns, collapse = "|")
     filter_columns <- names(data)[

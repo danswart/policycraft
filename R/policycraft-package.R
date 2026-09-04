@@ -33,4 +33,13 @@
 #' * [detect_runs()] identifies long runs on one side of a center line.
 #' * [longitudinal_summary()] produces a compact analytical summary.
 #'
+#' @section Interactive application:
+#' The Shiny application accepts ordinary CSV, Excel, and data-frame RDS files,
+#' plus validated canonical bundles. For ordinary data, the analyst identifies
+#' the ordering column, declares whether it contains dates or observation
+#' numbers, identifies the value column, and applies the mapping. The app offers
+#' filtering, grouping, run and line charts, bar and cohort views, trended and
+#' untrended expectation charts, autocorrelation diagnostics, limit
+#' recalculation, and image or editable ggplot2-code downloads.
+#'
 "_PACKAGE"

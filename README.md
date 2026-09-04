@@ -69,9 +69,77 @@ library(policycraft)
 launch_longitudinal()
 ```
 
-The application accepts CSV, Excel, and RDS files and provides column mapping,
-dynamic filtering, run and line charts, trended and untrended expectation
-charts, cohort analysis, autocorrelation diagnostics, and chart exports.
+The application accepts CSV, Excel, and RDS files and provides explicit column
+mapping, dynamic filtering, run and line charts, trended and untrended
+expectation charts, cohort analysis, autocorrelation diagnostics, limit
+recalculation, and reproducible chart exports.
+
+For an ordinary file, choose the ordering and value columns, declare whether
+the ordering column contains **Calendar dates** or an **Observation sequence**,
+and click **Apply mapping to app data**. Observation numbers remain observation
+numbers; the app does not manufacture calendar dates for the visible axis.
+
+Use the chart tabs progressively:
+
+1. Inspect the mapped rows in **Data Table**.
+2. Use **Run Chart** and **Line Chart** to examine order, direction, gaps, and
+   grouping.
+3. Use **Bar Chart** for a selected categorical comparison.
+4. Use **Untrended Expectation Chart** or **Trended Expectation Chart** only
+   after considering whether the corresponding model is suitable.
+5. Use **Cohort Chart**, **Auto-correlation Analysis**, and **Runs Debug** when
+   those diagnostics address the analytical question.
+
+The expectation charts flag observations outside the limits and three run-rule
+patterns: eight observations on one side of the center line, six observations
+steadily increasing or decreasing, and fourteen observations alternating up
+and down. These are investigation signals, not causal findings.
+
+Enable recalculation to select either a date or an observation at which a new
+center line and limits begin. The pre-boundary observations establish the
+original frozen baseline; rules do not bridge the recalculation boundary.
+
+Every chart can be downloaded as PNG, SVG, or PDF. **Download R Code** produces
+a compact, runnable script with recognizable `data.frame()`, named
+calculations, `ggplot()`, `geom_*()`, scales, CL/UCL/LCL labels, and theme calls.
+The script can be sourced or pasted into a Quarto code cell and edited normally.
+
+### Canonical longitudinal bundles
+
+policycraft also accepts a versioned RDS list containing `observations`,
+`measures`, `derivations`, `lineage`, `screening_report`, and
+`validation_results`. Version `canonical_longitudinal_bundle/0.1.0` is
+supported. Validation requires stable observation and series identifiers and
+checks required fields, registry references, units, and lineage endpoints;
+failures stop analysis.
+
+`list_canonical_series()` describes available `series_id` values using their
+registry metadata. In the app, all validated observations remain available for
+filtering, inspection, comparison-oriented Line charts, and export from the
+data table. The exact filtered rows form one shared analytical input. Run,
+expectation, and autocorrelation diagnostics require the filters to leave
+exactly one `series_id`. Missing periods remain gaps.
+
+The app displays series dimensions and valid period, measure and derivation
+definitions, observation statuses and source identifiers, lineage, validation
+results, and unresolved screening issues. Filtering and grouping select only
+existing observations: the app does not construct new combined totals, means,
+weighted means, or ratios. Create such specialized series explicitly in a
+curation script or Quarto document, validate them, and then analyze the curated
+result in policycraft. Ordinary flat-file uploads retain their existing mapping,
+filtering, and grouping workflow.
+
+External producers should declare the observation grain, create stable unique
+IDs, register every measure and derivation, link derived values to source
+observations, include screening and validation tables, and set the supported
+schema version. The schema and synthetic example under
+`inst/canonical-handoff/` provide construction guidance.
+
+For comparisons such as grade 3 versus grade 4 over time, select a discrete
+numeric column such as `tested_grade` in **Line/Bar Chart Grouping**. Numeric
+grouping values are treated as category labels, producing one line per selected
+grade. The grouping summary reports only categories remaining after all current
+filters are applied.
 
 ### Expectation-chart input requirements
 
@@ -82,8 +150,8 @@ Expectation Chart tab. The app rejects multi-series or duplicate-date inputs
 instead of calculating moving ranges across unrelated grades, subjects,
 organizations, standards, or student groups.
 
-When **Recalculate Limits** is enabled, the observations before the selected
-date establish the original center line and expectation limits. Those frozen
+When **Enable Recalculation** is selected, the observations before the chosen
+date or observation establish the original center line and expectation limits. Those frozen
 baseline limits are then used to evaluate the later observations. Explicit
 missing periods remain gaps and interrupt moving-range calculations; they are
 not removed, converted to zero, interpolated, or silently bridged.
@@ -118,6 +186,7 @@ Software does not make policy recommendations. Analysts do.
 
 ## Documentation
 
+- `vignette("using-longitudinal-app", package = "policycraft")`
 - `vignette("longitudinal-analysis", package = "policycraft")`
 - `?policycraft`
 - `?expectation_chart_data`

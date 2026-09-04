@@ -1,0 +1,174 @@
+---
+title: "Using the policycraft Longitudinal Application"
+author: "Dan Swart, CPA (ret)"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using the policycraft Longitudinal Application}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(policycraft)
+```
+
+## Purpose and analytical responsibility
+
+The application helps a policy analyst preserve temporal order, distinguish
+routine variation from patterns worth investigating, and prepare evidence for
+careful interpretation. A chart signal does not identify a cause or establish
+that a policy worked. The analyst must combine the pattern with data quality,
+institutional history, implementation evidence, affected-community knowledge,
+and plausible alternative explanations.
+
+Launch the locally installed application with:
+
+```{r launch, eval=FALSE}
+policycraft::launch_longitudinal()
+```
+
+Do not use `shiny::runApp("inst/app")` unless the working directory is the
+package source repository. `launch_longitudinal()` locates the installed app.
+
+## Choose an input
+
+The upload control accepts CSV, Excel, data-frame RDS, and validated canonical
+longitudinal RDS bundles. Ordinary files enter the mapping workflow. Canonical
+bundles retain their registered observation grain, definitions, identifiers,
+lineage, validation results, and screening warnings.
+
+For ordinary files:
+
+1. Select the column that orders the measurements.
+2. Select the numeric value column.
+3. Declare whether the ordering column contains **Calendar dates** or an
+   **Observation sequence**.
+4. Click **Apply mapping to app data**.
+5. Confirm that the status begins with `Applied:` and inspect **Data Table**.
+
+The proposed mapping does not alter the working data until it is applied. The
+uploaded source file is never overwritten. A sequence such as `1:15` remains an
+ordinal `observation` axis; it is not presented as dates in 1970.
+
+## Filter and group deliberately
+
+Filters restrict the rows shared by the analytical tabs. The grouping selector
+creates distinct lines or bars from an existing column; it does not aggregate
+unrelated series into a new measure. For a canonical bundle, Run, expectation,
+and autocorrelation diagnostics require exactly one existing `series_id`.
+
+Before interpreting a chart, confirm the measure definition, unit, reporting
+status, comparable coverage, missing periods, and any changes in collection or
+calculation. Missing periods remain gaps and interrupt moving-range and run
+calculations.
+
+## Read the chart tabs progressively
+
+### Run Chart
+
+Use the Run Chart as the first view of ordered behavior. It connects the values
+and adds the median. Look for direction, clustering, gaps, and observations that
+deserve verification before using expectation limits.
+
+### Line Chart
+
+Use the Line Chart for one series or for an explicit comparison selected in
+**Line/Bar Chart Grouping**. Grouped lines receive endpoint labels. A comparison
+can reveal composition or divergent trajectories, but does not itself explain
+the differences.
+
+### Bar Chart
+
+The Bar Chart summarizes the currently selected values by the chosen grouping
+column. Use it for comparison, not as a substitute for the ordered evidence.
+
+### Untrended Expectation Chart
+
+This chart estimates a center line (CL) and upper and lower expectation limits
+(UCL and LCL) from successive moving ranges. Limits describe the system
+represented by the selected observations; they are not targets, confidence
+intervals, or acceptable-performance standards.
+
+The chart reports:
+
+- observations outside UCL or LCL;
+- eight consecutive observations on one side of CL;
+- six consecutive observations steadily increasing or decreasing; and
+- fourteen consecutive observations alternating direction.
+
+Only the endpoint at which a rule becomes satisfied and later qualifying
+endpoints are flagged. Ties, missing values, and recalculation boundaries
+interrupt the applicable sequence.
+
+Enable recalculation when there is a defensible intervention or system-change
+boundary. Select a date for calendar data or an observation number for ordinal
+data. Observations before the boundary establish the original frozen limits;
+observations beginning at the boundary establish the recalculated segment.
+
+### Trended Expectation Chart
+
+Use a trended chart only when a sustained direction is a plausible routine
+feature of the system. The fitted linear trend becomes the center line and the
+limits follow it. For observation sequences, elapsed position—not artificial
+days—is used. A trend model can normalize a meaningful change, so compare it
+with the untrended chart and explain why the trended form is appropriate.
+
+### Cohort and autocorrelation views
+
+The Cohort Chart follows a selected group through successive grades and years.
+The autocorrelation tab reports lagged relationships within the ordered series.
+Autocorrelation can affect limit estimation, but it is not evidence that one
+policy variable caused another.
+
+### Runs Debug
+
+Runs Debug exposes the separate same-side, monotonic-trend, alternating, and
+combined flags. Use it to verify which observation triggered a rule rather than
+to search repeatedly for a preferred signal.
+
+## Export charts and analysis-ready code
+
+PNG is convenient for routine documents, SVG for scalable editing, and PDF for
+print workflows. **Download R Code** creates a compact `.R` script that can be
+opened in RStudio, sourced, or pasted into a Quarto code cell. It includes:
+
+- a recognizable `chart_data` data frame;
+- named calculations used by the chart;
+- ordinary `ggplot()`, `aes()`, and `geom_*()` calls;
+- the visible axis graduations;
+- editable CL, UCL, and LCL annotations; and
+- the shared `policycraft_chart_theme()` call.
+
+For example:
+
+```{r exported-code, eval=FALSE}
+source("expectation_chart_2026-09-04.R")
+chart
+
+# Continue editing as a normal ggplot object.
+chart + ggplot2::labs(
+  title = "Revised analytical title",
+  subtitle = "Define the series and period",
+  caption = "Source and interpretive caution"
+)
+```
+
+The generated expectation-chart limit labels default to bold text with
+`size = 4`. Major and minor panel grids are removed. These are ordinary ggplot2
+arguments and may be changed in the downloaded script.
+
+## A disciplined completion checklist
+
+Before presenting a result, confirm that:
+
+1. the ordering and value mappings are correct and applied;
+2. filters leave the intended analytical series and period;
+3. dates or observation numbers have the intended meaning;
+4. missingness and definition changes are disclosed;
+5. the selected chart form is justified;
+6. run-rule and limit signals are described as reasons to investigate;
+7. titles, units, source, and captions make the exported chart self-explanatory;
+8. causal language is supported by evidence beyond the chart; and
+9. the final QMD retains the editable code used to generate the figure.
+

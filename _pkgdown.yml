@@ -22,8 +22,16 @@ reference:
   - title: Prepare observations
     contents: [policy_dates, policy_numbers, as_policy_data]
   - title: Reason about longitudinal patterns
-    contents: [expectation_chart_data, detect_runs, longitudinal_summary]
+    contents:
+      - expectation_chart_data
+      - plot_expectation_chart
+      - policycraft_chart_theme
+      - detect_runs
+      - longitudinal_summary
 articles:
+  - title: Get started
+    navbar: Get started
+    contents: [using-longitudinal-app]
   - title: Methods
     navbar: Methods
     contents: [longitudinal-analysis]
