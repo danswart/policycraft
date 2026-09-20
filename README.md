@@ -17,7 +17,7 @@ other decision-makers—and for analysts who share its emphasis on
 temporal order, system behavior, non-random patterns, and careful
 interpretation.
 
-The charts are tools. Insight is the product.
+The charts are tools. Insight is the hoped-for product.
 
 
 ## Analytical stance
@@ -42,18 +42,28 @@ estimate:
 
 1. Have system outputs in the past been stable (predictable within the
 empirically estimated limits provided by the chart). When the output
-moves up and down without a single large 'cause' predominating, it will appear to move randomly between the upper and lower expectaton limits. and remain predictable within limits.
+moves up and down without a single large 'cause' predominating, it will 
+appear to move randomly between the upper and lower expectaton limits  
+and remain predictable within the limits.
 
-An expectation chart  helps an analyst determine whether the observed
-pattern remains consistent with the routine system established before
-the policy or whether the data contain evidence that warrants
-investigation.
+An expectation chart helps an analyst determine whether the observed
+pattern remains consistent with the routine system variation established 
+before the policy or whether the data contain evidence that the system has
+changed sufficiently to observe a measurable change in the observed output.
 
-A signal does not identify a cause specifically. but can often point to
-one based on when the unusual pattern becomes apparent. It does not
-prove that a policy worked or failed. It is a reason to investigate the
-system, combine the evidence with institutional and policy knowledge,
-and communicate uncertainty honestly.
+A signal does not identify a cause specifically, but can often point to
+one based on when the unusual pattern becomes apparent. It may demonstrate
+that following a policy change the output changed in a statistically
+measurable way (good or bad). It may demonstrate that following a policy
+change the output has NOT changed in a statistically measurable way.  
+
+Unlike an organizational effort, policy makers are not usually in the
+business of investigating the systems they hope to influence.  So, the
+usual Plan-Do-Study-Act form of organizational improvement is not what 
+they require from the Policy Analyst.
+
+They seek guidance (hopefully) on a rational basis for their next decision.
+
 
 ## Installation
 

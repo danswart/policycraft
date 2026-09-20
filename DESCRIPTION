@@ -2,10 +2,10 @@ Package: policycraft
 Title: Longitudinal Evidence Tools for Policy Analysis
 Version: 0.1.1
 Authors@R: person("Dan", "Swart", role = c("aut", "cre"), email = "danswartcpa@gmail.com")
-Description: Tools for policy analysts who examine longitudinal system data in
+Description: Tools for policy analysts to examine longitudinal system data in
     temporal order, distinguish routine variation from non-random patterns,
-    and translate disciplined observation and reasoning into decision-useful
-    insight. Includes an interactive Shiny application with grouped run, line,
+    and provide a rationale basis for advocating one position over another in the
+    presence of uncertainty. Includes an interactive Shiny application with grouped run, line,
     and bar charts, canonical-data exploration, cohort and autocorrelation views,
     trended and untrended expectation charts, multiple run rules, explicit
     date-versus-observation mapping, limit recalculation, and reproducible
