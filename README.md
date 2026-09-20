@@ -49,7 +49,7 @@ and remain predictable within the limits.
 An expectation chart helps an analyst determine whether the observed
 pattern remains consistent with the routine system variation established 
 before the policy or whether the data contain evidence that the system has
-changed sufficiently to observe a measurable change in the observed output.
+changed sufficiently to observe a measurable change in the output.
 
 A signal does not identify a cause specifically, but can often point to
 one based on when the unusual pattern becomes apparent. It may demonstrate
