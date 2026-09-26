@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">policycraft</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -19,6 +19,9 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Get started</h6></li>
+    <li><a class="dropdown-item" href="../articles/using-longitudinal-app.html">Using the policycraft Longitudinal Application</a></li>
+    <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Methods</h6></li>
     <li><a class="dropdown-item" href="../articles/longitudinal-analysis.html">Longitudinal Analysis: From Observation to Policy Insight</a></li>
   </ul></li>
@@ -38,8 +41,35 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.2" id="policycraft-012">policycraft 0.1.2<a class="anchor" aria-label="anchor" href="#policycraft-012"></a></h2>
+<ul><li>Select one or more observations to omit from center-line and limit calculations in both expectation charts. Omitted points remain visible as crosses and are still checked for signals. Remove a selection to restore a point, or use <strong>Clear exclusions</strong> to restore all points.</li>
+<li>Moving ranges and lag-1 estimates do not cross omitted or missing observations. Recalculation applies exclusions within each segment. Short later segments retain the original baseline limits; charts explain when this happens.</li>
+<li>Fit trended charts using included observations and show the fitted line and limits across the full series.</li>
+<li>Keep chart estimates, Runs Debug, captions, and R downloads consistent with the selected exclusions. Downloads retain the observed values and exclusion flags; uploaded files are not changed.</li>
+<li>Retain only visible selections after filtering. Reset exclusions after a new upload or applied column mapping, so they cannot transfer to another dataset.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.1" id="policycraft-011">policycraft 0.1.1<a class="anchor" aria-label="anchor" href="#policycraft-011"></a></h2>
+<ul><li>Adds an explicit mapping workflow for calendar dates versus observation sequences. Sequence numbers remain ordinal observations and are no longer converted to artificial 1970 dates.</li>
+<li>Adds an <strong>Apply mapping to app data</strong> action so proposed mappings are never mistaken for committed analytical changes.</li>
+<li>Supports expectation-limit recalculation from either a selected date or a selected observation number.</li>
+<li>Expands expectation-chart run rules to include eight observations on one side of the center line, six steadily increasing or decreasing observations, and fourteen alternating observations. Missing values and recalculation boundaries interrupt runs.</li>
+<li>Adds compact, readable <strong>Download R Code</strong> output for every chart. Generated scripts contain ordinary data preparation, named calculations, ggplot2 layers, matching axis graduations, and editable labels rather than serialized Shiny objects.</li>
+<li>Labels CL, UCL, and LCL in exported expectation charts using bold 4 mm text and removes major and minor grids from expectation-chart output.</li>
+<li>Adds validated canonical longitudinal RDS bundles, an explorer for existing canonical observations, registry metadata, observation lineage, filtered-row export, and one shared no-reaggregation analytical input.</li>
+<li>Keeps filtering and grouping available for canonical and ordinary uploads, while requiring exactly one existing series for expectation-style and autocorrelation diagnostics. Specialized derived series belong in explicit curation scripts or Quarto documents rather than hidden chart calculations.</li>
+<li>Places grouped-series labels in reserved space to the right of each line’s final data point, keeping endpoint markers and labels visually distinct.</li>
+</ul></div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="policycraft-010">policycraft 0.1.0<a class="anchor" aria-label="anchor" href="#policycraft-010"></a></h2>
-<div class="section level3">
+<ul><li>Allows line, run, and related grouped charts to use discrete numeric grouping columns such as <code>tested_grade</code>, and reports grouping categories from the currently filtered rows instead of the full uploaded dataset.</li>
+<li>Makes expectation-chart recalculation use only observations before the selected intervention date for the original center line and limits.</li>
+<li>Requires a single <code>series_id</code> (when present) and one observation per date, preventing unrelated longitudinal series from being combined silently.</li>
+<li>Preserves explicit missing periods as chart gaps and prevents moving ranges from bridging across them.</li>
+<li>Adds superintendent term arrows and labels to every longitudinal chart in the Shiny application, including date-based and cohort views.</li>
+<li>Adds <code><a href="../reference/plot_expectation_chart.html">plot_expectation_chart()</a></code> for standardized expectation charts from the R console, including limit and run-signal highlighting.</li>
+<li>Adds <code><a href="../reference/policycraft_chart_theme.html">policycraft_chart_theme()</a></code> as the single shared theme for console and application charts, keeping their typography and colors synchronized.</li>
+</ul><div class="section level3">
 <h3 id="new-package-0-1-0">New package<a class="anchor" aria-label="anchor" href="#new-package-0-1-0"></a></h3>
 <ul><li>Establishes the Observe → Reason → Insight analytical framework.</li>
 <li>Packages the longitudinal-analysis Shiny application.</li>

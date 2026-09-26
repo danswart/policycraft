@@ -1,7 +1,7 @@
 # Contributing to policycraft
 
-Contributions are welcome when they strengthen transparent, temporally
-ordered, decision-useful policy analysis.
+Contributions should help analysts examine data in time order and
+explain what they find.
 
 ## Before proposing a change
 
@@ -28,3 +28,11 @@ smoke-test update and browser review.
 
 Please keep pull requests focused and describe any user-visible behavior
 change.
+
+## Writing
+
+Use plain language in documentation, app labels, code comments, and
+release notes. Say what the code does and why it matters. Avoid
+corporate slogans, buzzwords, sales language, and inflated claims. Keep
+Dan’s wording when adding to text he has revised; change it only when
+the task calls for that change.

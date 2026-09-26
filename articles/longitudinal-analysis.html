@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">policycraft</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -34,6 +34,9 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Get started</h6></li>
+    <li><a class="dropdown-item" href="../articles/using-longitudinal-app.html">Using the policycraft Longitudinal Application</a></li>
+    <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Methods</h6></li>
     <li><a class="dropdown-item" href="../articles/longitudinal-analysis.html">Longitudinal Analysis: From Observation to Policy Insight</a></li>
   </ul>
@@ -58,7 +61,8 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Longitudinal Analysis: From Observation to Policy Insight</h1>
-                        <h4 data-toc-skip class="author">Dan Swart</h4>
+                        <h4 data-toc-skip class="author">Dan Swart, CPA
+(ret)</h4>
             
       
       <small class="dont-index">Source: <a href="https://github.com/danswart/policycraft/blob/main/vignettes/longitudinal-analysis.Rmd" class="external-link"><code>vignettes/longitudinal-analysis.Rmd</code></a></small>
@@ -67,6 +71,37 @@
 
     
     
+<div class="section level2">
+<h2 id="canonical-and-exploratory-inputs">Canonical and exploratory inputs<a class="anchor" aria-label="anchor" href="#canonical-and-exploratory-inputs"></a>
+</h2>
+<p>Ordinary CSV, Excel, and data-frame RDS uploads keep the exploratory
+workflow: users map columns, filter dimensions, and choose visual
+groups.</p>
+<p>A canonical longitudinal RDS bundle carries
+<code>observations</code>, <code>measures</code>,
+<code>derivations</code>, <code>lineage</code>,
+<code>screening_report</code>, and <code>validation_results</code>, plus
+a supported <code>schema_version</code>. policycraft validates required
+columns, unique IDs, registry references, units, and lineage before
+analysis. Version <code>canonical_longitudinal_bundle/0.1.0</code> is
+supported.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">bundle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/canonical_bundle.html">load_canonical_bundle</a></span><span class="op">(</span><span class="st">"my_bundle.rds"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/list_canonical_series.html">list_canonical_series</a></span><span class="op">(</span><span class="va">bundle</span><span class="op">)</span></span>
+<span><span class="va">series</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/resolve_canonical_series.html">resolve_canonical_series</a></span><span class="op">(</span><span class="va">bundle</span>, <span class="st">"my_stable_series_id"</span><span class="op">)</span></span>
+<span><span class="va">rows</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/canonical_expectation_input.html">canonical_expectation_input</a></span><span class="op">(</span><span class="va">series</span><span class="op">)</span></span></code></pre></div>
+<p>The app exposes validated canonical observations for filtering,
+grouped Line charts, inspection, and export. The exact filtered rows are
+shared across the diagnostic tools; Run, expectation, and
+autocorrelation tools require one existing <code>series_id</code>.
+Registry definitions, statuses, source identifiers, lineage, validation
+results, and semantic screening issues remain visible. The app does not
+create combined grades, totals, averages, or ratios. Those substantive
+transformations belong in an explicit curation script or Quarto
+document. Producers should declare grain, use stable IDs, register
+definitions, link derived observations to their sources, and include
+machine-readable screening and validation tables.</p>
+</div>
 <div class="section level2">
 <h2 id="the-analytical-purpose">The analytical purpose<a class="anchor" aria-label="anchor" href="#the-analytical-purpose"></a>
 </h2>
@@ -103,16 +138,17 @@ expectation chart estimates a center and limits from the sequential
 behavior of the data. Observations within those limits may look
 irregular while remaining consistent with the routine system.</p>
 <p>Some patterns warrant investigation—for example, an observation
-beyond an expectation limit or a sufficiently long run on one side of
-the center. These signals indicate that the pattern is difficult to
-explain as routine behavior alone. They do not identify the responsible
-force and do not establish that a particular policy caused the
-pattern.</p>
+beyond an expectation limit, eight observations on one side of the
+center, six steadily increasing or decreasing observations, or fourteen
+alternating observations. These signals indicate that the pattern is
+difficult to explain as routine behavior alone. They do not identify the
+responsible force and do not establish that a particular policy caused
+the pattern.</p>
 </div>
 <div class="section level2">
 <h2 id="prepare-longitudinal-data">Prepare longitudinal data<a class="anchor" aria-label="anchor" href="#prepare-longitudinal-data"></a>
 </h2>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">policy_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  year <span class="op">=</span> <span class="fl">2015</span><span class="op">:</span><span class="fl">2024</span>,</span>
 <span>  measure <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">11</span>, <span class="fl">9</span>, <span class="fl">12</span>, <span class="fl">10</span>, <span class="fl">11</span>, <span class="fl">10</span>, <span class="fl">19</span>, <span class="fl">20</span>, <span class="fl">21</span><span class="op">)</span>,</span>
@@ -142,7 +178,7 @@ which fields answer the question being considered.</p>
 <div class="section level2">
 <h2 id="calculate-an-untrended-expectation-chart">Calculate an untrended expectation chart<a class="anchor" aria-label="anchor" href="#calculate-an-untrended-expectation-chart"></a>
 </h2>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">chart_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/expectation_chart_data.html">expectation_chart_data</a></span><span class="op">(</span><span class="va">policy_data</span>, <span class="va">year</span>, <span class="va">measure</span><span class="op">)</span></span>
 <span><span class="va">chart_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>  <span class="st">"date"</span>, <span class="st">"value"</span>, <span class="st">"center"</span>, <span class="st">"lower_limit"</span>, <span class="st">"upper_limit"</span>,</span>
@@ -165,7 +201,7 @@ which fields answer the question being considered.</p>
 successive observations. Its limits describe the baseline represented by
 the supplied data. They are not performance standards, desired targets,
 confidence intervals, or acceptable-policy boundaries.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span></span>
 <span>  <span class="va">chart_data</span><span class="op">$</span><span class="va">date</span>,</span>
 <span>  <span class="va">chart_data</span><span class="op">$</span><span class="va">value</span>,</span>
@@ -180,9 +216,28 @@ confidence intervals, or acceptable-policy boundaries.</p>
 <p><img src="longitudinal-analysis_files/figure-html/plot-1.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level2">
+<h2 id="point-exclusions-in-the-app">Point exclusions in the app<a class="anchor" aria-label="anchor" href="#point-exclusions-in-the-app"></a>
+</h2>
+<p>The app can omit selected observations from center-line and limit
+calculations without hiding their values. Excluded points remain visible
+as crosses and still participate in signal checks. Moving ranges do not
+join across them. For a trended chart, the line is fitted to included
+observations and shown across the full series.</p>
+<p>Open <strong>Exclude observations from expectation-limit
+calculations</strong> below the app’s filters. The app guide explains
+selection, restoration, minimum data requirements, and downloads. Record
+the reason for an exclusion in the chart caption or your analysis
+notes.</p>
+<p>The console functions used in this vignette do not yet accept point
+exclusions. Removing rows before calling
+<code><a href="../reference/expectation_chart_data.html">expectation_chart_data()</a></code> is not equivalent to the app’s
+behavior: it removes the observations and joins across the removed rows
+when calculating moving ranges.</p>
+</div>
+<div class="section level2">
 <h2 id="examine-runs">Examine runs<a class="anchor" aria-label="anchor" href="#examine-runs"></a>
 </h2>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">chart_data</span><span class="op">$</span><span class="va">run_signal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/detect_runs.html">detect_runs</a></span><span class="op">(</span><span class="va">chart_data</span><span class="op">$</span><span class="va">value</span>, <span class="va">chart_data</span><span class="op">$</span><span class="va">center</span><span class="op">)</span></span>
 <span><span class="va">chart_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"date"</span>, <span class="st">"value"</span>, <span class="st">"outside_limits"</span>, <span class="st">"run_signal"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 10 × 4</span></span></span>
@@ -202,7 +257,14 @@ confidence intervals, or acceptable-policy boundaries.</p>
 subsequent observations in a run on the same side of the center. A value
 exactly on the center and a missing value interrupt a run. Rules should
 be declared before interpreting the chart; they should not be changed
-repeatedly until the analyst finds a preferred story.</p>
+repeatedly until the analyst finds a preferred story. The interactive
+application additionally evaluates six-point monotonic trends and
+fourteen-point alternating patterns; <strong>Runs Debug</strong>
+displays each rule separately.</p>
+<p>The exported <code><a href="../reference/detect_runs.html">detect_runs()</a></code> function currently addresses
+the same-side rule. The additional application rules are chart
+diagnostics rather than a claim that one universal rule set is mandatory
+for every policy context.</p>
 </div>
 <div class="section level2">
 <h2 id="decide-whether-an-expectation-chart-is-suitable">Decide whether an expectation chart is suitable<a class="anchor" aria-label="anchor" href="#decide-whether-an-expectation-chart-is-suitable"></a>
@@ -222,11 +284,15 @@ normalize a policy-relevant change that should be investigated?</li>
 <p>Run, line, bar, and cohort charts help the analyst inspect direction,
 composition, gaps, and grouping structure before selecting an
 expectation-chart form.</p>
+<p>Use filtering and grouping to inspect existing observations. If an
+analysis requires combined categories, summed counts, or a ratio of
+sums, construct and validate that new series visibly in a curation
+script or Quarto report before loading it into policycraft.</p>
 </div>
 <div class="section level2">
 <h2 id="move-from-signal-to-insight">Move from signal to insight<a class="anchor" aria-label="anchor" href="#move-from-signal-to-insight"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/longitudinal_summary.html">longitudinal_summary</a></span><span class="op">(</span><span class="va">policy_data</span>, <span class="va">year</span>, <span class="va">measure</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 10</span></span></span>
 <span><span class="co">#&gt;   observations first_date last_date  center lower_limit upper_limit</span></span>

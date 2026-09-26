@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">policycraft</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -19,6 +19,9 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Get started</h6></li>
+    <li><a class="dropdown-item" href="articles/using-longitudinal-app.html">Using the policycraft Longitudinal Application</a></li>
+    <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Methods</h6></li>
     <li><a class="dropdown-item" href="articles/longitudinal-analysis.html">Longitudinal Analysis: From Observation to Policy Insight</a></li>
   </ul></li>
@@ -39,7 +42,7 @@
 
 <div id="contributing-to-policycraft" class="section level1">
 
-<p>Contributions are welcome when they strengthen transparent, temporally ordered, decision-useful policy analysis.</p>
+<p>Contributions should help analysts examine data in time order and explain what they find.</p>
 <div class="section level2">
 <h2 id="before-proposing-a-change">Before proposing a change<a class="anchor" aria-label="anchor" href="#before-proposing-a-change"></a></h2>
 <ol style="list-style-type: decimal"><li>Open an issue describing the policy-analysis need and intended users.</li>
@@ -56,6 +59,10 @@
 <span><span class="fu">pkgdown</span><span class="fu">::</span><span class="fu"><a href="https://pkgdown.r-lib.org/reference/build_site.html" class="external-link">build_site</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p>New exported functions require Roxygen documentation, examples, and tests. New analytical rules require a citation or an explicit methodological rationale. Changes to the Shiny app should include a smoke-test update and browser review.</p>
 <p>Please keep pull requests focused and describe any user-visible behavior change.</p>
+</div>
+<div class="section level2">
+<h2 id="writing">Writing<a class="anchor" aria-label="anchor" href="#writing"></a></h2>
+<p>Use plain language in documentation, app labels, code comments, and release notes. Say what the code does and why it matters. Avoid corporate slogans, buzzwords, sales language, and inflated claims. Keep Dan’s wording when adding to text he has revised; change it only when the task calls for that change.</p>
 </div>
 </div>
 

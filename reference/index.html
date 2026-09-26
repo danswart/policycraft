@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">policycraft</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -19,6 +19,9 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Get started</h6></li>
+    <li><a class="dropdown-item" href="../articles/using-longitudinal-app.html">Using the policycraft Longitudinal Application</a></li>
+    <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Methods</h6></li>
     <li><a class="dropdown-item" href="../articles/longitudinal-analysis.html">Longitudinal Analysis: From Observation to Policy Insight</a></li>
   </ul></li>
@@ -99,6 +102,43 @@
         </dt>
         <dd>Prepare a data frame for longitudinal policy analysis</dd>
       </dl></div><div class="section level2">
+      <h2 id="read-canonical-data">Read canonical data<a class="anchor" aria-label="anchor" href="#read-canonical-data"></a></h2>
+
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="canonical_bundle.html">is_canonical_bundle()</a></code> <code><a href="canonical_bundle.html">validate_canonical_bundle()</a></code> <code><a href="canonical_bundle.html">load_canonical_bundle()</a></code>
+
+        </dt>
+        <dd>Canonical longitudinal bundle support</dd>
+
+        <dt>
+
+          <code><a href="canonical_expectation_input.html">canonical_expectation_input()</a></code>
+
+        </dt>
+        <dd>Extract expectation-chart input from a resolved canonical series</dd>
+
+        <dt>
+
+          <code><a href="list_canonical_series.html">list_canonical_series()</a></code>
+
+        </dt>
+        <dd>List analytical series in a canonical bundle</dd>
+
+        <dt>
+
+          <code><a href="resolve_canonical_series.html">resolve_canonical_series()</a></code>
+
+        </dt>
+        <dd>Resolve exactly one canonical analytical series</dd>
+      </dl></div><div class="section level2">
       <h2 id="reason-about-longitudinal-patterns">Reason about longitudinal patterns<a class="anchor" aria-label="anchor" href="#reason-about-longitudinal-patterns"></a></h2>
 
 
@@ -114,6 +154,20 @@
 
         </dt>
         <dd>Calculate expectation-chart values from moving ranges</dd>
+
+        <dt>
+
+          <code><a href="plot_expectation_chart.html">plot_expectation_chart()</a></code>
+
+        </dt>
+        <dd>Plot a standardized expectation chart</dd>
+
+        <dt>
+
+          <code><a href="policycraft_chart_theme.html">policycraft_chart_theme()</a></code>
+
+        </dt>
+        <dd>Apply the policycraft chart theme</dd>
 
         <dt>
 

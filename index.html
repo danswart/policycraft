@@ -23,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="index.html">policycraft</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,6 +37,9 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Get started</h6></li>
+    <li><a class="dropdown-item" href="articles/using-longitudinal-app.html">Using the policycraft Longitudinal Application</a></li>
+    <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Methods</h6></li>
     <li><a class="dropdown-item" href="articles/longitudinal-analysis.html">Longitudinal Analysis: From Observation to Policy Insight</a></li>
   </ul>
@@ -63,13 +66,23 @@
 <!-- badges: start -->
 
 <p><strong>Observe. Reason. Insight.</strong></p>
-<p><code>policycraft</code> is an R toolkit for policy analysts who examine longitudinal system data and translate disciplined observation into decision-useful insight. It is designed for analysts advising civic boards, public bodies, and other decision-makers—and for analysts who share its emphasis on temporal order, system behavior, non-random patterns, and careful interpretation.</p>
-<p>The charts are tools. Insight is the product.</p>
+<p><code>policycraft</code> is an R toolkit for policy analysts to progressively examine longitudinal system data and translate the observations into insight that may be useful to decision-makers who are responsible for the system under review.</p>
+<p>It is designed for analysts advising civic boards, public bodies, and other decision-makers—and for analysts who share its emphasis on temporal order, system behavior, non-random patterns, and careful interpretation.</p>
+<p>The charts are tools. Insight is the hoped-for product.</p>
 <div class="section level2">
 <h2 id="analytical-stance">Analytical stance<a class="anchor" aria-label="anchor" href="#analytical-stance"></a>
 </h2>
-<p>Most measured systems are affected by many small forces. Their data can move up and down without a single force predominating, yet remain predictable within empirically estimated limits. An expectation chart helps an analyst ask whether the observed pattern remains consistent with that routine system or whether the data contain evidence that warrants investigation.</p>
-<p>A signal does not identify a cause. It does not prove that a policy worked or failed. It is a reason to investigate the system, combine the evidence with institutional and policy knowledge, and communicate uncertainty honestly.</p>
+<p>Most systems are affected by many forces creating up-and-down variation in the measures observed. It is the job of the Policy Analyst to estimate what those ‘ups’ and ‘downs’ probably mean, within the context of earlier outputs. This simply cannot be done if the data are not assembled in date/time order for analysis.</p>
+<p>Once data are assembled in the order of their occurance the Longitudinal tool allows the Policy Analyst to filter the data into the desired groupings. Then, to progressively examine the selected output with a Run Chart, a Line Chart, a Bar Chart and, finally, with an Expectation Chart (trended or untrended). I call it an Expectation Chart because it will establish what the reasonable expectations of the process output should be.</p>
+<p>Placing the data on an Expectation Chart (aka Control Chart, or Process Behavior Chart) allows the analyst to estimate:</p>
+<ol style="list-style-type: decimal">
+<li>Have system outputs in the past been stable (predictable within the empirically estimated limits provided by the chart). When the output moves up and down without a single large ‘cause’ predominating, it will appear to move randomly between the upper and lower expectaton limits<br>
+and remain predictable within the limits.</li>
+</ol>
+<p>An expectation chart helps an analyst determine whether the observed pattern remains consistent with the routine system variation established before the policy or whether the data contain evidence that the system has changed sufficiently to observe a measurable change in the output.</p>
+<p>A signal does not identify a cause specifically, but can often point to one based on when the unusual pattern becomes apparent. It may demonstrate that following a policy change the output changed in a statistically measurable way (good or bad). It may demonstrate that following a policy change the output has NOT changed in a statistically measurable way.</p>
+<p>Unlike an organizational effort, policy makers are not usually in the business of investigating the systems they hope to influence. So, the usual Plan-Do-Study-Act form of organizational improvement is not what they require from the Policy Analyst.</p>
+<p>They seek guidance (hopefully) on a rational basis for their next decision.</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -84,7 +97,37 @@
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://danswart.github.io/policycraft/">policycraft</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/launch_longitudinal.html">launch_longitudinal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<p>The application accepts CSV, Excel, and RDS files and provides column mapping, dynamic filtering, run and line charts, trended and untrended expectation charts, cohort analysis, autocorrelation diagnostics, and chart exports.</p>
+<p>The application accepts CSV, Excel, and RDS files and provides explicit column mapping, dynamic filtering, run and line charts, trended and untrended expectation charts, cohort analysis, autocorrelation diagnostics, limit recalculation, point exclusions, and reproducible chart exports.</p>
+<p>For an ordinary file, choose the ordering and value columns, declare whether the ordering column contains <strong>Calendar dates</strong> or an <strong>Observation sequence</strong>, and click <strong>Apply mapping to app data</strong>. Observation numbers remain observation numbers; the app does not manufacture calendar dates for the visible axis.</p>
+<p>Use the chart tabs progressively:</p>
+<ol style="list-style-type: decimal">
+<li>Inspect the mapped rows in <strong>Data Table</strong>.</li>
+<li>Use <strong>Run Chart</strong> and <strong>Line Chart</strong> to examine order, direction, gaps, and grouping.</li>
+<li>Use <strong>Bar Chart</strong> for a selected categorical comparison.</li>
+<li>Use <strong>Untrended Expectation Chart</strong> or <strong>Trended Expectation Chart</strong> only after considering whether the corresponding model is suitable.</li>
+<li>Use <strong>Cohort Chart</strong>, <strong>Auto-correlation Analysis</strong>, and <strong>Runs Debug</strong> when those diagnostics address the analytical question.</li>
+</ol>
+<p>The expectation charts flag observations outside the limits and three run-rule patterns: eight observations on one side of the center line, six observations steadily increasing or decreasing, and fourteen observations alternating up and down. These are investigation signals, not causal findings.</p>
+<p>Enable recalculation to select either a date or an observation at which a new center line and limits begin. The pre-boundary observations establish the original frozen baseline; rules do not bridge the recalculation boundary.</p>
+<p>Open <strong>Exclude observations from expectation-limit calculations</strong> below the filters to select one or more dates or observation numbers. Both expectation charts recalculate using the included points. Omitted points remain visible as crosses and still participate in signal checks; chart captions and R downloads record the exclusions. Remove a selected item to restore it, or click <strong>Clear exclusions</strong>. Filtering retains only visible selections; a new upload or applied mapping resets them.</p>
+<p>Moving ranges and lag-1 estimation use only adjacent included observations, without joining across an omission or a missing value. Untrended limits require at least two included observations and an adjacent included pair. A post-boundary segment with fewer than three included observations retains the frozen baseline; trended limits require at least three included observations. When enabled, the autocorrelation modifier is estimated separately within each segment, using full precision. Unavailable correlation uses standard moving-range limits; near-perfect correlation retains the existing standard-deviation fallback, using included values.</p>
+<p>Every chart can be downloaded as PNG, SVG, or PDF. <strong>Download R Code</strong> produces a compact, runnable script with recognizable <code><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame()</a></code>, named calculations, <code>ggplot()</code>, <code>geom_*()</code>, scales, CL/UCL/LCL labels, and theme calls. The script can be sourced or pasted into a Quarto code cell and edited normally.</p>
+<div class="section level3">
+<h3 id="canonical-longitudinal-bundles">Canonical longitudinal bundles<a class="anchor" aria-label="anchor" href="#canonical-longitudinal-bundles"></a>
+</h3>
+<p>policycraft also accepts a versioned RDS list containing <code>observations</code>, <code>measures</code>, <code>derivations</code>, <code>lineage</code>, <code>screening_report</code>, and <code>validation_results</code>. Version <code>canonical_longitudinal_bundle/0.1.0</code> is supported. Validation requires stable observation and series identifiers and checks required fields, registry references, units, and lineage endpoints; failures stop analysis.</p>
+<p><code><a href="reference/list_canonical_series.html">list_canonical_series()</a></code> describes available <code>series_id</code> values using their registry metadata. In the app, all validated observations remain available for filtering, inspection, comparison-oriented Line charts, and export from the data table. The exact filtered rows form one shared analytical input. Run, expectation, and autocorrelation diagnostics require the filters to leave exactly one <code>series_id</code>. Missing periods remain gaps.</p>
+<p>The app displays series dimensions and valid period, measure and derivation definitions, observation statuses and source identifiers, lineage, validation results, and unresolved screening issues. Filtering and grouping select only existing observations: the app does not construct new combined totals, means, weighted means, or ratios. Create such specialized series explicitly in a curation script or Quarto document, validate them, and then analyze the curated result in policycraft. Ordinary flat-file uploads retain their existing mapping, filtering, and grouping workflow.</p>
+<p>External producers should declare the observation grain, create stable unique IDs, register every measure and derivation, link derived values to source observations, include screening and validation tables, and set the supported schema version. The schema and synthetic example under <code>inst/canonical-handoff/</code> provide construction guidance.</p>
+<p>For comparisons such as grade 3 versus grade 4 over time, select a discrete numeric column such as <code>tested_grade</code> in <strong>Line/Bar Chart Grouping</strong>. Numeric grouping values are treated as category labels, producing one line per selected grade. The grouping summary reports only categories remaining after all current filters are applied.</p>
+</div>
+<div class="section level3">
+<h3 id="expectation-chart-input-requirements">Expectation-chart input requirements<a class="anchor" aria-label="anchor" href="#expectation-chart-input-requirements"></a>
+</h3>
+<p>An expectation chart must contain one temporally ordered process series with no more than one observation per date. Analysis-ready files should include a stable <code>series_id</code>; filter it to exactly one value before opening the Expectation Chart tab. The app rejects multi-series or duplicate-date inputs instead of calculating moving ranges across unrelated grades, subjects, organizations, standards, or student groups.</p>
+<p>When <strong>Enable Recalculation</strong> is selected, the observations before the chosen date or observation establish the original center line and expectation limits. The later segment gets its own estimates if at least three included observations remain; otherwise it uses the original baseline limits. Explicit missing periods remain gaps and interrupt moving-range calculations; they are not removed, converted to zero, interpolated, or silently bridged.</p>
+<p>The point-exclusion controls apply to the app. The calculation functions below do not yet accept an exclusion argument.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="use-the-calculation-functions-directly">Use the calculation functions directly<a class="anchor" aria-label="anchor" href="#use-the-calculation-functions-directly"></a>
@@ -98,7 +141,10 @@
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="reference/expectation_chart_data.html">expectation_chart_data</a></span><span class="op">(</span><span class="va">example_data</span>, <span class="va">year</span>, <span class="va">measure</span><span class="op">)</span></span>
-<span><span class="fu"><a href="reference/longitudinal_summary.html">longitudinal_summary</a></span><span class="op">(</span><span class="va">example_data</span>, <span class="va">year</span>, <span class="va">measure</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="reference/longitudinal_summary.html">longitudinal_summary</a></span><span class="op">(</span><span class="va">example_data</span>, <span class="va">year</span>, <span class="va">measure</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Create the package's standardized expectation chart in the plot pane</span></span>
+<span><span class="fu"><a href="reference/plot_expectation_chart.html">plot_expectation_chart</a></span><span class="op">(</span><span class="va">example_data</span>, <span class="va">year</span>, <span class="va">measure</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="observe--reason--insight">Observe → Reason → Insight<a class="anchor" aria-label="anchor" href="#observe--reason--insight"></a>
@@ -117,9 +163,11 @@
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
 <ul>
+<li><code><a href="articles/using-longitudinal-app.html">vignette("using-longitudinal-app", package = "policycraft")</a></code></li>
 <li><code><a href="articles/longitudinal-analysis.html">vignette("longitudinal-analysis", package = "policycraft")</a></code></li>
 <li><code><a href="reference/policycraft-package.html">?policycraft</a></code></li>
 <li><code><a href="reference/expectation_chart_data.html">?expectation_chart_data</a></code></li>
+<li><code><a href="reference/plot_expectation_chart.html">?plot_expectation_chart</a></code></li>
 <li><code><a href="reference/launch_longitudinal.html">?launch_longitudinal</a></code></li>
 </ul>
 </div>

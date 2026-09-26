@@ -13,7 +13,7 @@ develop defensible insight rather than react to every fluctuation."><meta proper
 
     <a class="navbar-brand me-2" href="../index.html">policycraft</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -25,6 +25,9 @@ develop defensible insight rather than react to every fluctuation."><meta proper
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Get started</h6></li>
+    <li><a class="dropdown-item" href="../articles/using-longitudinal-app.html">Using the policycraft Longitudinal Application</a></li>
+    <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Methods</h6></li>
     <li><a class="dropdown-item" href="../articles/longitudinal-analysis.html">Longitudinal Analysis: From Observation to Policy Insight</a></li>
   </ul></li>
@@ -91,6 +94,21 @@ implications, uncertainty, and options to decision-makers.</p></li>
 <li><p><code><a href="detect_runs.html">detect_runs()</a></code> identifies long runs on one side of a center line.</p></li>
 <li><p><code><a href="longitudinal_summary.html">longitudinal_summary()</a></code> produces a compact analytical summary.</p></li>
 </ul></div>
+    <div class="section level2">
+    <h2 id="interactive-application">Interactive application<a class="anchor" aria-label="anchor" href="#interactive-application"></a></h2>
+
+
+<p>The Shiny application accepts ordinary CSV, Excel, and data-frame RDS files,
+plus validated canonical bundles. For ordinary data, the analyst identifies
+the ordering column, declares whether it contains dates or observation
+numbers, identifies the value column, and applies the mapping. The app offers
+filtering, grouping, run and line charts, bar and cohort views, trended and
+untrended expectation charts, autocorrelation diagnostics, limit
+recalculation, and image or editable ggplot2-code downloads. Select one or
+more observations to omit from expectation-chart estimation while keeping
+their values visible. Omitted points remain in signal checks, and downloads
+record the exclusions. See <code><a href="launch_longitudinal.html">launch_longitudinal()</a></code> for the calculation rules.</p>
+    </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p>Useful links:</p><ul><li><p><a href="https://danswart.github.io/policycraft/">https://danswart.github.io/policycraft/</a></p></li>

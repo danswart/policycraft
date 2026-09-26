@@ -52,6 +52,21 @@ instruction to manipulate the measured outcome.
 - [`longitudinal_summary()`](https://danswart.github.io/policycraft/reference/longitudinal_summary.md)
   produces a compact analytical summary.
 
+## Interactive application
+
+The Shiny application accepts ordinary CSV, Excel, and data-frame RDS
+files, plus validated canonical bundles. For ordinary data, the analyst
+identifies the ordering column, declares whether it contains dates or
+observation numbers, identifies the value column, and applies the
+mapping. The app offers filtering, grouping, run and line charts, bar
+and cohort views, trended and untrended expectation charts,
+autocorrelation diagnostics, limit recalculation, and image or editable
+ggplot2-code downloads. Select one or more observations to omit from
+expectation-chart estimation while keeping their values visible. Omitted
+points remain in signal checks, and downloads record the exclusions. See
+[`launch_longitudinal()`](https://danswart.github.io/policycraft/reference/launch_longitudinal.md)
+for the calculation rules.
+
 ## See also
 
 Useful links:
