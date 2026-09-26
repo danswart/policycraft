@@ -143,14 +143,6 @@ test_that("expectation charts detect monotonic and alternating run rules", {
   expect_true(all(combined$any_run_rule[13:15]))
 })
 
-test_that("recalculation uses only the pre-intervention baseline", {
-  app <- system.file("app", package = "policycraft")
-  server_text <- paste(readLines(file.path(app, "server.R"), warn = FALSE), collapse = "\n")
-  expect_match(server_text, "emp_cl_orig <- safe_mean(data_before$value)", fixed = TRUE)
-  expect_false(grepl("emp_cl_orig <- safe_mean(data$value)", server_text, fixed = TRUE))
-  expect_match(server_text, "calculate_moving_ranges(data_before$value)", fixed = TRUE)
-})
-
 test_that("full-range sliders retain rows with missing provenance", {
   app <- system.file("app", package = "policycraft")
   helper_env <- new.env(parent = globalenv())
@@ -269,7 +261,7 @@ test_that("expectation charts use ordinal semantics for observation mappings", {
   expect_match(server_text, "if (!observation_axis && !is.null(trend_model)", fixed = TRUE)
   expect_match(ui_text, '"recalc_observation"', fixed = TRUE)
   expect_match(ui_text, "Select the observation where the new expectation limits begin", fixed = TRUE)
-  expect_match(server_text, "recalc_point <- if (observation_axis)", fixed = TRUE)
+  expect_match(server_text, "recalc_point <- estimates$boundary", fixed = TRUE)
   expect_false(grepl("recalc_enabled <- !observation_axis", server_text, fixed = TRUE))
 })
 

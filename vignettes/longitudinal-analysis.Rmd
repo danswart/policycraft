@@ -123,6 +123,24 @@ lines(chart_data$date, chart_data$upper_limit, col = "firebrick", lty = 2)
 lines(chart_data$date, chart_data$lower_limit, col = "firebrick", lty = 2)
 ```
 
+## Point exclusions in the app
+
+The app can omit selected observations from center-line and limit calculations
+without hiding their values. Excluded points remain visible as crosses and still
+participate in signal checks. Moving ranges do not join across them. For a
+trended chart, the line is fitted to included observations and shown across the
+full series.
+
+Open **Exclude observations from expectation-limit calculations** below the app's
+filters. The app guide explains selection, restoration, minimum data requirements,
+and downloads. Record the reason for an exclusion in the chart caption or your
+analysis notes.
+
+The console functions used in this vignette do not yet accept point exclusions.
+Removing rows before calling `expectation_chart_data()` is not equivalent to the
+app's behavior: it removes the observations and joins across the removed rows
+when calculating moving ranges.
+
 ## Examine runs
 
 ```{r runs}

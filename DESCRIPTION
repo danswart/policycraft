@@ -1,6 +1,6 @@
 Package: policycraft
 Title: Longitudinal Evidence Tools for Policy Analysis
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: person("Dan", "Swart", role = c("aut", "cre"), email = "danswartcpa@gmail.com")
 Description: Tools for policy analysts to examine longitudinal system data in
     temporal order, distinguish routine variation from non-random patterns,
@@ -8,8 +8,9 @@ Description: Tools for policy analysts to examine longitudinal system data in
     presence of uncertainty. Includes an interactive Shiny application with grouped run, line,
     and bar charts, canonical-data exploration, cohort and autocorrelation views,
     trended and untrended expectation charts, multiple run rules, explicit
-    date-versus-observation mapping, limit recalculation, and reproducible
-    image and editable ggplot2-code exports.
+    date-versus-observation mapping, limit recalculation, and point selection
+    to omit observations from center-line and limit calculations while keeping
+    them visible on the chart. Provides image and editable ggplot2-code exports.
 License: MIT + file LICENSE
 URL: https://danswart.github.io/policycraft/, https://github.com/danswart/policycraft
 BugReports: https://github.com/danswart/policycraft/issues

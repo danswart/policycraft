@@ -40,6 +40,9 @@
 #' numbers, identifies the value column, and applies the mapping. The app offers
 #' filtering, grouping, run and line charts, bar and cohort views, trended and
 #' untrended expectation charts, autocorrelation diagnostics, limit
-#' recalculation, and image or editable ggplot2-code downloads.
+#' recalculation, and image or editable ggplot2-code downloads. Select one or
+#' more observations to omit from expectation-chart estimation while keeping
+#' their values visible. Omitted points remain in signal checks, and downloads
+#' record the exclusions. See [launch_longitudinal()] for the calculation rules.
 #'
 "_PACKAGE"

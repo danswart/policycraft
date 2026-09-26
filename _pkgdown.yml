@@ -21,6 +21,12 @@ reference:
     contents: [launch_longitudinal]
   - title: Prepare observations
     contents: [policy_dates, policy_numbers, as_policy_data]
+  - title: Read canonical data
+    contents:
+      - canonical_bundle
+      - canonical_expectation_input
+      - list_canonical_series
+      - resolve_canonical_series
   - title: Reason about longitudinal patterns
     contents:
       - expectation_chart_data

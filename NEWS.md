@@ -1,3 +1,20 @@
+# policycraft 0.1.2
+
+- Select one or more observations to omit from center-line and limit calculations
+  in both expectation charts. Omitted points remain visible as crosses and are
+  still checked for signals. Remove a selection to restore a point, or use
+  **Clear exclusions** to restore all points.
+- Moving ranges and lag-1 estimates do not cross omitted or missing observations.
+  Recalculation applies exclusions within each segment. Short later segments
+  retain the original baseline limits; charts explain when this happens.
+- Fit trended charts using included observations and show the fitted line and
+  limits across the full series.
+- Keep chart estimates, Runs Debug, captions, and R downloads consistent with
+  the selected exclusions. Downloads retain the observed values and exclusion
+  flags; uploaded files are not changed.
+- Retain only visible selections after filtering. Reset exclusions after a new
+  upload or applied column mapping, so they cannot transfer to another dataset.
+
 # policycraft 0.1.1
 
 - Adds an explicit mapping workflow for calendar dates versus observation

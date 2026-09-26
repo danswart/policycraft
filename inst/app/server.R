@@ -186,6 +186,8 @@ server <- function(input, output, session) {
       value_col = value_col,
       order_type = order_type
     ))
+    limit_generation(isolate(limit_generation()) + 1L)
+    limit_selected(character(0))
     showNotification("Column mapping applied to the app's working data.", type = "message")
   })
 
@@ -355,6 +357,83 @@ server <- function(input, output, session) {
     }
 
     return(grade_like)
+  })
+
+  # IDs refer to source rows, not positions in the filtered or sorted view.
+  limit_generation <- reactiveVal(0L)
+  limit_selected <- reactiveVal(character(0))
+  observeEvent(raw_data(), {
+    limit_generation(isolate(limit_generation()) + 1L)
+    limit_selected(character(0))
+    updateSelectizeInput(session, "limit_exclusions", selected = character(0))
+  }, priority = 100)
+
+  limit_rows <- reactive({
+    data <- raw_data()
+    data$.limit_id <- paste(limit_generation(), seq_len(nrow(data)), sep = ":")
+    data <- apply_current_filters(data)
+    data[order(data$date), , drop = FALSE]
+  })
+  observeEvent(limit_rows(), {
+    data <- limit_rows()
+    axis <- if ("observation" %in% names(data)) "observation" else "date"
+    labels <- paste0(data[[axis]], " | value: ", data$value,
+                     if ("series_id" %in% names(data)) paste0(" | ", data$series_id) else "",
+                     " | row ", sub(".*:", "", data$.limit_id))
+    choices <- stats::setNames(data$.limit_id, labels)
+    selected <- intersect(isolate(limit_selected()), data$.limit_id)
+    limit_selected(selected)
+    updateSelectizeInput(session, "limit_exclusions", choices = choices,
+                         selected = selected,
+                         server = TRUE)
+  })
+  observeEvent(input$limit_exclusions, {
+    limit_selected(intersect(input$limit_exclusions, limit_rows()$.limit_id))
+  }, ignoreNULL = FALSE)
+  observeEvent(input$clear_limit_exclusions, {
+    limit_selected(character(0))
+    updateSelectizeInput(session, "limit_exclusions", selected = character(0))
+  })
+  expectation_data <- reactive({
+    data <- limit_rows()
+    data$.limit_excluded <- data$.limit_id %in% limit_selected()
+    data$value <- safe_numeric(data$value)
+    data$.chart_x <- if ("observation" %in% names(data)) data$observation else data$date
+    data
+  })
+  output$limit_exclusion_status <- renderText({
+    data <- expectation_data()
+    paste(sum(data$.limit_excluded), "of", nrow(data), "visible observations excluded from estimation.")
+  })
+
+  # Shared estimates for the chart and its diagnostics; original values survive.
+  control_estimates <- reactive({
+    data <- expectation_data()
+    problem <- expectation_series_problem(data)
+    validate(need(is.null(problem), problem))
+    data <- data[!is.na(data$.chart_x), , drop = FALSE]
+    validate(need(nrow(data) > 0L, "No observations available for expectation limits."))
+    boundary <- if ("observation" %in% names(data)) as.numeric(input$recalc_observation) else input$recalc_date
+    split <- isTRUE(input$enable_recalc) && length(boundary) == 1L &&
+      !is.na(boundary) && boundary >= min(data$.chart_x) && boundary <= max(data$.chart_x)
+    estimate <- function(rows) {
+      tryCatch(limit_estimate(rows$value, rows$.limit_excluded,
+                              isTRUE(input$use_autocorr_modifier)),
+               error = function(e) validate(need(FALSE, conditionMessage(e))))
+    }
+    if (split) {
+      before <- data[data$.chart_x < boundary, , drop = FALSE]
+      after <- data[data$.chart_x >= boundary, , drop = FALSE]
+      original <- estimate(before)
+      # Preserve the existing frozen-baseline behavior for short post segments.
+      frozen <- sum(is.finite(after$value) & !after$.limit_excluded) < 3L
+      current <- if (frozen) original else estimate(after)
+    } else {
+      original <- current <- estimate(data)
+      frozen <- FALSE
+    }
+    list(original = original, current = current, split = split,
+         boundary = boundary, frozen = frozen)
   })
 
   # ENHANCED: Reactive for auto-correlation analysis with BOTH ACF and Sample Correlation
@@ -842,277 +921,38 @@ server <- function(input, output, session) {
         if (!is.na(corr_vals$r_lag2)) round(corr_vals$r_lag2, 4) else "NA",
         ", r₃ = ",
         if (!is.na(corr_vals$r_lag3)) round(corr_vals$r_lag3, 4) else "NA",
-        " <em>(Available for control limit calculations)</em>"
+        " <em>(Full-series diagnostics; limit estimation uses included adjacent pairs within each segment.)</em>"
       ))
     )
   })
 
-  # NEW: Runs debug information
-  output$runs_debug_info <- renderText({
-    tryCatch(
-      {
-        data <- filtered_data()
-        if (is.null(data) || nrow(data) == 0) {
-          return("No data available for runs analysis.")
-        }
-
-        # Remove NA values
-        data <- data[!is.na(data$date) & !is.na(data$value), ]
-        if (nrow(data) == 0) {
-          return("No valid data after removing NA values.")
-        }
-
-        # Determine if recalculation is enabled
-        recalc_enabled <- !is.null(input$enable_recalc) &&
-          input$enable_recalc &&
-          !is.null(input$recalc_date) &&
-          input$recalc_date >= min(data$date, na.rm = TRUE) &&
-          input$recalc_date <= max(data$date, na.rm = TRUE)
-
-        if (recalc_enabled) {
-          # Recalculation mode analysis
-          recalc_date <- input$recalc_date
-          data_before <- data[data$date < recalc_date, ]
-          data_after <- data[data$date >= recalc_date, ]
-
-          emp_cl_orig <- safe_mean(data_before$value)
-          emp_cl_recalc <- if (nrow(data_after) >= 3) {
-            safe_mean(data_after$value)
-          } else {
-            emp_cl_orig
-          }
-
-          # Analyze runs for each segment
-          before_above <- if (nrow(data_before) > 0) {
-            safe_numeric(data_before$value) > emp_cl_orig
-          } else {
-            c()
-          }
-          after_above <- if (nrow(data_after) > 0) {
-            safe_numeric(data_after$value) > emp_cl_recalc
-          } else {
-            c()
-          }
-
-          # Find consecutive runs in each segment
-          before_runs <- if (length(before_above) > 0) {
-            rle(before_above[!is.na(before_above)])$lengths
-          } else {
-            c()
-          }
-          after_runs <- if (length(after_above) > 0) {
-            rle(after_above[!is.na(after_above)])$lengths
-          } else {
-            c()
-          }
-
-          before_long_runs <- before_runs[before_runs >= 8]
-          after_long_runs <- after_runs[after_runs >= 8]
-          debug_rules <- detect_run_rule_signals(
-            data$value,
-            ifelse(data$date < recalc_date, emp_cl_orig, emp_cl_recalc),
-            same_side_signals = detect_runs_signals_recalc(
-              data$value, emp_cl_orig, emp_cl_recalc, data$date, recalc_date
-            ),
-            segment = data$date >= recalc_date
-          )
-
-          paste(
-            "=== FIXED RUNS ANALYSIS (RECALCULATION MODE) ===",
-            paste("Total data points:", nrow(data)),
-            paste("Recalculation date:", format(recalc_date, "%Y-%m-%d")),
-            paste("Points before recalc:", nrow(data_before)),
-            paste("Points after recalc:", nrow(data_after)),
-            "",
-            "=== BEFORE RECALC SEGMENT ===",
-            paste("Centerline (original):", round(emp_cl_orig, 3)),
-            paste("All run lengths:", paste(before_runs, collapse = ", ")),
-            paste(
-              "Runs of 8+ points:",
-              paste(before_long_runs, collapse = ", ")
-            ),
-            paste("Runs signals detected:", length(before_long_runs) > 0),
-            "",
-            "=== AFTER RECALC SEGMENT ===",
-            paste("Centerline (recalculated):", round(emp_cl_recalc, 3)),
-            paste("All run lengths:", paste(after_runs, collapse = ", ")),
-            paste(
-              "Runs of 8+ points:",
-              paste(after_long_runs, collapse = ", ")
-            ),
-            paste("Runs signals detected:", length(after_long_runs) > 0),
-            "",
-            "=== COMBINED RUN-RULE RESULT ===",
-            run_rule_summary(debug_rules),
-            paste("Six-point trend endpoints:", paste(which(debug_rules$trend_6), collapse = ", ")),
-            paste("Fourteen-point alternating endpoints:", paste(which(debug_rules$alternating_14), collapse = ", ")),
-            "",
-            "=== IMPROVEMENT NOTES ===",
-            "• Each segment analyzed separately with appropriate centerline",
-            "• No artificial breaks at recalculation boundary",
-            "• Proper run length encoding (rle) used for detection",
-            "• Only 8th+ points in each run marked as signals",
-            sep = "\n"
-          )
-        } else {
-          # Standard mode analysis
-          emp_cl <- safe_mean(data$value)
-          above_cl <- safe_numeric(data$value) > emp_cl
-          above_cl_clean <- above_cl[!is.na(above_cl)]
-
-          runs <- rle(above_cl_clean)$lengths
-          long_runs <- runs[runs >= 8]
-
-          # Find actual runs details
-          run_details <- rle(above_cl_clean)
-          above_runs <- run_details$lengths[run_details$values == TRUE]
-          below_runs <- run_details$lengths[run_details$values == FALSE]
-          debug_rules <- detect_run_rule_signals(
-            data$value,
-            rep(emp_cl, nrow(data))
-          )
-
-          paste(
-            "=== FIXED RUNS ANALYSIS (STANDARD MODE) ===",
-            paste("Total data points:", nrow(data)),
-            paste("Centerline:", round(emp_cl, 3)),
-            "",
-            "=== ALL CONSECUTIVE RUNS ===",
-            paste("All run lengths:", paste(runs, collapse = ", ")),
-            paste("Runs above centerline:", paste(above_runs, collapse = ", ")),
-            paste("Runs below centerline:", paste(below_runs, collapse = ", ")),
-            "",
-            "=== RUNS SIGNALS (8+ CONSECUTIVE) ===",
-            paste("Runs of 8+ points:", paste(long_runs, collapse = ", ")),
-            paste("Total long runs detected:", length(long_runs)),
-            paste("Runs signal triggered:", length(long_runs) > 0),
-            "",
-            "=== COMBINED RUN-RULE RESULT ===",
-            run_rule_summary(debug_rules),
-            paste("Six-point trend endpoints:", paste(which(debug_rules$trend_6), collapse = ", ")),
-            paste("Fourteen-point alternating endpoints:", paste(which(debug_rules$alternating_14), collapse = ", ")),
-            "",
-            "=== IMPROVEMENT NOTES ===",
-            "• Proper run length encoding (rle) detects ALL consecutive runs",
-            "• No boundary condition bugs with rolling windows",
-            "• Handles runs of any length (not just exactly 8)",
-            "• Only marks 8th+ points in each run as signals",
-            sep = "\n"
-          )
-        }
-      },
-      error = function(e) {
-        paste("ERROR in runs analysis:", e$message)
-      }
+  # Diagnostics use the exact plotted results, including exclusions and phases.
+  control_diagnostics <- reactive({
+    data <- control_plot()$data
+    req(nrow(data) > 0L, "sigma_signals" %in% names(data))
+    center <- if ("emp_cl_orig" %in% names(data)) {
+      ifelse(data$.chart_x < data$recalc_date, data$emp_cl_orig, data$emp_cl_recalc)
+    } else data$emp_cl
+    data.frame(
+      Row = seq_len(nrow(data)), Position = data$.chart_x, Value = data$value,
+      Excluded_From_Estimation = data$.limit_excluded,
+      Centerline_Used = center, Above_Centerline = data$value > center,
+      Outside_Limits = data$sigma_signals,
+      Same_Side_8 = data$same_side_signal, Trend_6 = data$trend_signal,
+      Alternating_14 = data$alternating_signal, Any_Run_Rule = data$runs_signal
     )
   })
-
-  # NEW: Runs debug data table
+  output$runs_debug_info <- renderText({
+    data <- control_diagnostics()
+    paste("Observed points:", nrow(data),
+          "\nExcluded from estimation:", sum(data$Excluded_From_Estimation),
+          "\nSame-side run signals:", sum(data$Same_Side_8, na.rm = TRUE),
+          "\nSix-point trend signals:", sum(data$Trend_6, na.rm = TRUE),
+          "\nFourteen-point alternating signals:", sum(data$Alternating_14, na.rm = TRUE),
+          "\nAll observed points are checked against the displayed limits.")
+  })
   output$runs_debug_table <- DT::renderDataTable(
-    {
-      tryCatch(
-        {
-          data <- filtered_data()
-          if (is.null(data) || nrow(data) == 0) {
-            return(data.frame(Message = "No data available"))
-          }
-
-          # Remove NA values
-          data <- data[!is.na(data$date) & !is.na(data$value), ]
-          if (nrow(data) == 0) {
-            return(data.frame(
-              Message = "No valid data after removing NA values"
-            ))
-          }
-
-          # Calculate runs analysis details
-          recalc_enabled <- !is.null(input$enable_recalc) &&
-            input$enable_recalc &&
-            !is.null(input$recalc_date) &&
-            input$recalc_date >= min(data$date, na.rm = TRUE) &&
-            input$recalc_date <= max(data$date, na.rm = TRUE)
-
-          if (recalc_enabled) {
-            recalc_date <- input$recalc_date
-            data_before <- data[data$date < recalc_date, ]
-            emp_cl_orig <- safe_mean(data_before$value)
-            data_after <- data[data$date >= recalc_date, ]
-            emp_cl_recalc <- if (nrow(data_after) >= 3) {
-              safe_mean(data_after$value)
-            } else {
-              emp_cl_orig
-            }
-
-            # Use improved runs detection
-            runs_signals <- detect_runs_signals_recalc(
-              safe_numeric(data$value),
-              emp_cl_orig,
-              emp_cl_recalc,
-              data$date,
-              recalc_date
-            )
-            rule_signals <- detect_run_rule_signals(
-              data$value,
-              ifelse(data$date < recalc_date, emp_cl_orig, emp_cl_recalc),
-              same_side_signals = runs_signals,
-              segment = data$date >= recalc_date
-            )
-
-            centerline_used <- ifelse(
-              data$date < recalc_date,
-              emp_cl_orig,
-              emp_cl_recalc
-            )
-
-            debug_data <- data.frame(
-              Row = 1:nrow(data),
-              Date = data$date,
-              Value = round(safe_numeric(data$value), 3),
-              Centerline_Used = round(centerline_used, 3),
-              Above_Centerline = safe_numeric(data$value) > centerline_used,
-              Same_Side_8 = rule_signals$same_side_8,
-              Trend_6 = rule_signals$trend_6,
-              Alternating_14 = rule_signals$alternating_14,
-              Any_Run_Rule = rule_signals$any_run_rule,
-              Segment = ifelse(data$date < recalc_date, "Before", "After")
-            )
-          } else {
-            emp_cl <- safe_mean(data$value)
-
-            # Use improved runs detection
-            runs_signals <- detect_runs_signals(
-              safe_numeric(data$value),
-              rep(emp_cl, nrow(data)),
-              data$date
-            )
-            rule_signals <- detect_run_rule_signals(
-              data$value,
-              rep(emp_cl, nrow(data)),
-              same_side_signals = runs_signals
-            )
-
-            debug_data <- data.frame(
-              Row = 1:nrow(data),
-              Date = data$date,
-              Value = round(safe_numeric(data$value), 3),
-              Centerline = round(emp_cl, 3),
-              Above_Centerline = safe_numeric(data$value) > emp_cl,
-              Same_Side_8 = rule_signals$same_side_8,
-              Trend_6 = rule_signals$trend_6,
-              Alternating_14 = rule_signals$alternating_14,
-              Any_Run_Rule = rule_signals$any_run_rule
-            )
-          }
-
-          return(debug_data)
-        },
-        error = function(e) {
-          return(data.frame(
-            Error = paste("Error in runs debug table:", e$message)
-          ))
-        }
-      )
-    },
+    control_diagnostics(),
     options = list(pageLength = 15, scrollX = TRUE, scrollY = "400px")
   )
 
@@ -1499,7 +1339,8 @@ server <- function(input, output, session) {
   # FIXED: Create reactive plot for expectation chart with IMPROVED runs analysis and data processing
   # UPDATED: Added auto-correlation adjustment option with horizontal annotation boxes
   control_plot <- reactive({
-    data <- analytical_data()
+    data <- expectation_data()
+    estimates <- control_estimates()
     req(data)
 
     # IMPROVED: Better data validation
@@ -1508,7 +1349,7 @@ server <- function(input, output, session) {
     }
 
     # Remove rows with NA values to prevent TRUE/FALSE errors
-    data <- data[!is.na(data$date) & !is.na(data$value), ]
+    data <- data[!is.na(data$date), ]
 
     if (nrow(data) == 0) {
       return(empty_chart_message("No valid data after removing NA values"))
@@ -1551,30 +1392,17 @@ server <- function(input, output, session) {
       input$control_caption
     }
 
-    # Recalculate from either a calendar date or an ordinal observation.
-    recalc_point <- if (observation_axis) {
-      suppressWarnings(as.numeric(input$recalc_observation))
-    } else {
-      input$recalc_date
+    caption_text <- limit_exclusion_caption(data, caption_text)
+    recalc_point <- estimates$boundary
+    recalc_enabled <- estimates$split
+    use_autocorr <- estimates$original$adjusted
+    r_lag1 <- estimates$original$r
+    if (estimates$original$sd_fallback || estimates$current$sd_fallback) {
+      caption_text <- paste(caption_text,
+        "Near-perfect lag-1 correlation: affected segment limits use the included-value standard deviation fallback.", sep = "\n")
     }
-    recalc_enabled <- !is.null(input$enable_recalc) &&
-      input$enable_recalc &&
-      length(recalc_point) == 1L &&
-      !is.na(recalc_point) &&
-      recalc_point >= min(data$.chart_x, na.rm = TRUE) &&
-      recalc_point <= max(data$.chart_x, na.rm = TRUE)
-
-    # Check if auto-correlation adjustment is enabled
-    use_autocorr <- !is.null(input$use_autocorr_modifier) &&
-      input$use_autocorr_modifier
-
-    # Get correlation values if needed
-    corr_vals <- if (use_autocorr) correlation_values() else NULL
-    r_lag1 <- if (!is.null(corr_vals) && !is.na(corr_vals$r_lag1)) {
-      corr_vals$r_lag1
-    } else {
-      NA
-    }
+    if (estimates$frozen) caption_text <- paste(caption_text,
+      "Post-boundary limits use the frozen baseline: fewer than three included observations.", sep = "\n")
 
     if (recalc_enabled) {
       # RECALCULATION MODE: Split data and calculate separate expectation limits
@@ -1584,78 +1412,14 @@ server <- function(input, output, session) {
       data_before <- data[data$.chart_x < recalc_date, ]
       data_after <- data[data$.chart_x >= recalc_date, ]
 
-      if (sum(!is.na(data_before$value)) < 2L) {
-        return(empty_chart_message(
-          "At least two valid pre-intervention observations are required to calculate frozen baseline limits."
-        ))
-      }
-
-      # IMPROVED: Calculate original expectation chart statistics with safe functions
-      emp_cl_orig <- safe_mean(data_before$value)
-
-      # Calculate sigma based on whether auto-correlation adjustment is enabled
-      if (use_autocorr && !is.na(r_lag1)) {
-        # Calculate moving ranges for the entire dataset
-        avg_mr_orig <- calculate_moving_ranges(data_before$value)
-        if (!is.na(avg_mr_orig) && abs(r_lag1) < 0.999) {
-          # Avoid division by zero
-          # Apply auto-correlation adjustment formula: σ = R-bar / (d2 * √(1 - r²))
-          sigma_orig <- avg_mr_orig / (1.128 * sqrt(1 - r_lag1^2))
-        } else {
-          # Fallback to standard deviation if moving range fails or r is too close to 1
-          sigma_orig <- safe_sd(data_before$value)
-        }
-      } else {
-        # Standard calculation using moving range method for consistency
-        avg_mr_orig <- calculate_moving_ranges(data_before$value)
-        if (!is.na(avg_mr_orig)) {
-          # Standard moving range sigma calculation
-          sigma_orig <- avg_mr_orig / 1.128
-        } else {
-          # Fallback to standard deviation if moving range fails
-          sigma_orig <- safe_sd(data_before$value)
-        }
-      }
-
-      emp_ucl_orig <- emp_cl_orig + 3 * sigma_orig
-      emp_lcl_orig <- emp_cl_orig - 3 * sigma_orig
-
-      # Calculate recalculated expectation chart statistics
-      if (nrow(data_after) >= 3) {
-        emp_cl_recalc <- safe_mean(data_after$value)
-
-        # Calculate sigma for recalculated segment
-        if (use_autocorr && !is.na(r_lag1)) {
-          # Calculate moving ranges for the after-recalc segment
-          avg_mr_recalc <- calculate_moving_ranges(data_after$value)
-          if (!is.na(avg_mr_recalc) && abs(r_lag1) < 0.999) {
-            # Avoid division by zero
-            # Apply auto-correlation adjustment formula: σ = R-bar / (d2 * √(1 - r²))
-            sigma_recalc <- avg_mr_recalc / (1.128 * sqrt(1 - r_lag1^2))
-          } else {
-            # Fallback to standard deviation if moving range fails or r is too close to 1
-            sigma_recalc <- safe_sd(data_after$value)
-          }
-        } else {
-          # Standard calculation using moving range method for consistency
-          avg_mr_recalc <- calculate_moving_ranges(data_after$value)
-          if (!is.na(avg_mr_recalc)) {
-            # Standard moving range sigma calculation
-            sigma_recalc <- avg_mr_recalc / 1.128
-          } else {
-            # Fallback to standard deviation if moving range fails
-            sigma_recalc <- safe_sd(data_after$value)
-          }
-        }
-
-        emp_ucl_recalc <- emp_cl_recalc + 3 * sigma_recalc
-        emp_lcl_recalc <- emp_cl_recalc - 3 * sigma_recalc
-      } else {
-        emp_cl_recalc <- emp_cl_orig
-        sigma_recalc <- sigma_orig
-        emp_ucl_recalc <- emp_ucl_orig
-        emp_lcl_recalc <- emp_lcl_orig
-      }
+      emp_cl_orig <- estimates$original$center
+      emp_ucl_orig <- estimates$original$upper
+      emp_lcl_orig <- estimates$original$lower
+      sigma_orig <- estimates$original$sigma
+      emp_cl_recalc <- estimates$current$center
+      emp_ucl_recalc <- estimates$current$upper
+      emp_lcl_recalc <- estimates$current$lower
+      sigma_recalc <- estimates$current$sigma
 
       # Add expectation chart columns to data
       data$emp_cl_orig <- emp_cl_orig
@@ -1729,7 +1493,7 @@ server <- function(input, output, session) {
         " | LCL = ",
         round(emp_lcl_recalc, 2)
       )
-      if (use_autocorr && !is.na(r_lag1)) {
+      if (estimates$current$adjusted) {
         annotation_text_recalc <- paste0(
           annotation_text_recalc,
           " | σ = ",
@@ -1752,36 +1516,11 @@ server <- function(input, output, session) {
       )
     } else {
       # STANDARD MODE: Original untrended expectation chart
-      # IMPROVED: Safe statistical calculations
-      emp_cl <- safe_mean(data$value)
-
-      # Calculate sigma based on whether auto-correlation adjustment is enabled
-      if (use_autocorr && !is.na(r_lag1)) {
-        # Calculate average moving range
-        avg_mr <- calculate_moving_ranges(data$value)
-        if (!is.na(avg_mr) && abs(r_lag1) < 0.999) {
-          # Avoid division by zero
-          # Apply auto-correlation adjustment formula: σ = R-bar / (d2 * √(1 - r²))
-          # where d2 = 1.128 for moving range of 2 consecutive points
-          sigma <- avg_mr / (1.128 * sqrt(1 - r_lag1^2))
-        } else {
-          # Fallback to standard deviation if moving range calculation fails or r is too close to 1
-          sigma <- safe_sd(data$value)
-        }
-      } else {
-        # Standard calculation using moving range method for consistency
-        avg_mr <- calculate_moving_ranges(data$value)
-        if (!is.na(avg_mr)) {
-          # Standard moving range sigma calculation: σ = R-bar / d2
-          sigma <- avg_mr / 1.128
-        } else {
-          # Fallback to standard deviation if moving range calculation fails
-          sigma <- safe_sd(data$value)
-        }
-      }
-
-      emp_ucl <- emp_cl + 3 * sigma
-      emp_lcl <- emp_cl - 3 * sigma
+      emp_cl <- estimates$current$center
+      emp_ucl <- estimates$current$upper
+      emp_lcl <- estimates$current$lower
+      sigma <- estimates$current$sigma
+      avg_mr <- estimates$current$average_moving_range
 
       # Add expectation chart columns to data
       data$emp_cl <- emp_cl
@@ -1850,7 +1589,7 @@ server <- function(input, output, session) {
           annotation_text,
           " | σ = ",
           round(sigma, 3),
-          " (moving range method) | avg MR = ",
+          if (estimates$current$sd_fallback) " (standard deviation fallback) | avg MR = " else " (moving range method) | avg MR = ",
           avg_mr_display
         )
       }
@@ -1899,7 +1638,9 @@ server <- function(input, output, session) {
       geom_line(aes(group = .plot_group), color = "darkgray", linewidth = 1.2) +
 
       # Points colored by sigma signals
-      geom_point(aes(color = sigma_signals), size = 2.5) +
+      geom_point(aes(color = sigma_signals, shape = .limit_excluded), size = 3) +
+      scale_shape_manual(values = c("FALSE" = 16, "TRUE" = 4),
+                         name = "Estimation", labels = c("Included", "Excluded")) +
       scale_color_manual(values = c("TRUE" = "red", "FALSE" = "blue")) +
       geom_text(
         data = control_labels,
@@ -2322,7 +2063,7 @@ server <- function(input, output, session) {
 
   # Create reactive plot for trended expectation chart with IMPROVED data processing
   trended_plot <- reactive({
-    data <- analytical_data()
+    data <- expectation_data()
     req(data)
 
     # IMPROVED: Better data validation
@@ -2331,7 +2072,7 @@ server <- function(input, output, session) {
     }
 
     # Remove rows with NA values to prevent TRUE/FALSE errors
-    data <- data[!is.na(data$date) & !is.na(data$value), ]
+    data <- data[!is.na(data$date), ]
 
     if (nrow(data) == 0) {
       return(empty_chart_message("No valid data after removing NA values"))
@@ -2381,32 +2122,17 @@ server <- function(input, output, session) {
       as.numeric(data$date - min(data$date))
     }
 
-    # IMPROVED: Fit linear model with robust error handling
-    trend_model <- NULL
-    bias_corrected_sd <- 0
-
-    tryCatch(
-      {
-        trend_model <- lm(value ~ date_numeric, data = data)
-
-        # Calculate residuals standard deviation with bias correction
-        residuals_sd <- safe_sd(residuals(trend_model))
-        bias_corrected_sd <- residuals_sd / 1.128
-
-        # Calculate trended centerline and expectation limits
-        data$trended_cl <- as.numeric(predict(trend_model, newdata = data))
-        data$trended_ucl <- data$trended_cl + 3 * bias_corrected_sd
-        data$trended_lcl <- data$trended_cl - 3 * bias_corrected_sd
-      },
-      error = function(e) {
-        # Fallback to simple mean if linear model fails
-        emp_cl <- safe_mean(data$value)
-        data$trended_cl <<- rep(emp_cl, nrow(data))
-        data$trended_ucl <<- rep(emp_cl + 3 * safe_sd(data$value), nrow(data))
-        data$trended_lcl <<- rep(emp_cl - 3 * safe_sd(data$value), nrow(data))
-        bias_corrected_sd <<- safe_sd(data$value)
-      }
-    )
+    caption_text <- limit_exclusion_caption(data, caption_text)
+    problem <- expectation_series_problem(data)
+    validate(need(is.null(problem), problem))
+    fitting_data <- data[!data$.limit_excluded & is.finite(data$value), , drop = FALSE]
+    validate(need(nrow(fitting_data) >= 3L && length(unique(fitting_data$date_numeric)) >= 2L,
+                  "At least three included observations are required to estimate trended limits."))
+    trend_model <- lm(value ~ date_numeric, data = fitting_data)
+    bias_corrected_sd <- safe_sd(residuals(trend_model)) / 1.128
+    data$trended_cl <- as.numeric(predict(trend_model, newdata = data))
+    data$trended_ucl <- data$trended_cl + 3 * bias_corrected_sd
+    data$trended_lcl <- data$trended_cl - 3 * bias_corrected_sd
 
     # Calculate CAGR from trend line endpoints (uses predicted values so
     # single-point noise at the extremes does not distort the rate).
@@ -2525,7 +2251,9 @@ server <- function(input, output, session) {
       geom_line(aes(group = .plot_group), color = "darkgray", linewidth = 1.2) +
 
       # Points colored by sigma signals (red = outside limits, blue = within)
-      geom_point(aes(color = sigma_signals), size = 2.5) +
+      geom_point(aes(color = sigma_signals, shape = .limit_excluded), size = 3) +
+      scale_shape_manual(values = c("FALSE" = 16, "TRUE" = 4),
+                         name = "Estimation", labels = c("Included", "Excluded")) +
       scale_color_manual(values = c("TRUE" = "red", "FALSE" = "blue")) +
 
       geom_text(

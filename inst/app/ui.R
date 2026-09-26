@@ -84,6 +84,20 @@ ui <- bslib::page_fluid(
     )
   ),
 
+  conditionalPanel(
+    condition = "output.data_uploaded",
+    tags$details(
+      tags$summary("Exclude observations from expectation-limit calculations"),
+      selectizeInput("limit_exclusions", "Observations to omit from estimation:",
+                     choices = NULL, multiple = TRUE,
+                     options = list(plugins = list("remove_button"), closeAfterSelect = TRUE,
+                                    placeholder = "Select dates or observation numbers")),
+      actionButton("clear_limit_exclusions", "Clear exclusions"),
+      tags$p("Applies to both expectation charts. Remove an item to restore it. Excluded points remain visible as crosses and are still checked for signals. Moving ranges never bridge excluded points. Selections reset after a new upload or mapping; filtering retains only visible selections."),
+      textOutput("limit_exclusion_status")
+    )
+  ),
+
   # Row 3: Tab Panel for Data Table and Charts
   fluidRow(
     column(

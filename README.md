@@ -82,7 +82,7 @@ launch_longitudinal()
 The application accepts CSV, Excel, and RDS files and provides explicit column
 mapping, dynamic filtering, run and line charts, trended and untrended
 expectation charts, cohort analysis, autocorrelation diagnostics, limit
-recalculation, and reproducible chart exports.
+recalculation, point exclusions, and reproducible chart exports.
 
 For an ordinary file, choose the ordering and value columns, declare whether
 the ordering column contains **Calendar dates** or an **Observation sequence**,
@@ -108,6 +108,23 @@ and down. These are investigation signals, not causal findings.
 Enable recalculation to select either a date or an observation at which a new
 center line and limits begin. The pre-boundary observations establish the
 original frozen baseline; rules do not bridge the recalculation boundary.
+
+Open **Exclude observations from expectation-limit calculations** below the
+filters to select one or more dates or observation numbers. Both expectation
+charts recalculate using the included points. Omitted points remain visible as
+crosses and still participate in signal checks; chart captions and R downloads
+record the exclusions. Remove a selected item to restore it, or click **Clear
+exclusions**. Filtering retains only visible selections; a new upload or applied
+mapping resets them.
+
+Moving ranges and lag-1 estimation use only adjacent included observations,
+without joining across an omission or a missing value. Untrended limits require
+at least two included observations and an adjacent included pair. A post-boundary
+segment with fewer than three included observations retains the frozen baseline;
+trended limits require at least three included observations. When enabled, the
+autocorrelation modifier is estimated separately within each segment, using full
+precision. Unavailable correlation uses standard moving-range limits; near-perfect
+correlation retains the existing standard-deviation fallback, using included values.
 
 Every chart can be downloaded as PNG, SVG, or PDF. **Download R Code** produces
 a compact, runnable script with recognizable `data.frame()`, named
@@ -161,10 +178,14 @@ instead of calculating moving ranges across unrelated grades, subjects,
 organizations, standards, or student groups.
 
 When **Enable Recalculation** is selected, the observations before the chosen
-date or observation establish the original center line and expectation limits. Those frozen
-baseline limits are then used to evaluate the later observations. Explicit
+date or observation establish the original center line and expectation limits.
+The later segment gets its own estimates if at least three included observations
+remain; otherwise it uses the original baseline limits. Explicit
 missing periods remain gaps and interrupt moving-range calculations; they are
 not removed, converted to zero, interpolated, or silently bridged.
+
+The point-exclusion controls apply to the app. The calculation functions below
+do not yet accept an exclusion argument.
 
 ## Use the calculation functions directly
 

@@ -18,6 +18,7 @@ library(scales)
 # Pure data-import and normalization helpers live outside server() so they can
 # be unit-tested without starting a Shiny session.
 source(file.path("R", "data_helpers.R"), local = FALSE)
+source(file.path("R", "limit_helpers.R"), local = FALSE)
 source(file.path("R", "chart_download_module.R"), local = FALSE)
 
 # IMPROVED: Safe numeric conversion function

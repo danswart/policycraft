@@ -93,8 +93,10 @@ semantic_chart_code <- function(plot, chart_name) {
     trended = c(
       "# Refit the trend so the main statistical construction is visible and editable.",
       paste0("chart_data$trend_position <- as.numeric(chart_data$`", x, "` - min(chart_data$`", x, "`))"),
-      "trend_model <- lm(value ~ trend_position, data = chart_data)",
-      "chart_data$trended_cl <- predict(trend_model)",
+      if (".limit_excluded" %in% names(data))
+        "trend_model <- lm(value ~ trend_position, data = chart_data, subset = !.limit_excluded & is.finite(value))" else
+        "trend_model <- lm(value ~ trend_position, data = chart_data)",
+      "chart_data$trended_cl <- predict(trend_model, newdata = chart_data)",
       "trend_sigma <- sd(residuals(trend_model), na.rm = TRUE) / 1.128",
       "chart_data$trended_ucl <- chart_data$trended_cl + 3 * trend_sigma",
       "chart_data$trended_lcl <- chart_data$trended_cl - 3 * trend_sigma", "", base,
@@ -110,6 +112,11 @@ semantic_chart_code <- function(plot, chart_name) {
     ),
     cohort = c(base, "chart <- chart + geom_line(colour = \"#2E86AB\", linewidth = 1.5)", "chart <- chart + geom_point(colour = \"#A23B72\", size = 3.5)")
   )
+  if (type %in% c("expectation", "trended") && ".limit_excluded" %in% names(data)) {
+    body <- c(body,
+      "# Crosses identify observed points omitted from estimation, retained for signal checks.",
+      "chart <- chart + geom_point(data = subset(chart_data, .limit_excluded), shape = 4, size = 4)")
+  }
   axis_code <- if (inherits(data[[x]], "Date")) {
     c(
       "date_span <- as.numeric(diff(range(chart_data$date, na.rm = TRUE)))",
